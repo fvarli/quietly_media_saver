@@ -1,24 +1,43 @@
-// Quietly — pass-2 widget + state + token tests.
+// Quietly — widget + state + token tests (passes 1–3).
 //
-// Covers the foundation (state machine, tokens) plus the pass-2 UI: Home boots
-// and renders faithfully, the shared components behave + expose semantics, the
-// Result quality row reflects state and opens the sheet, and Analyzing
-// auto-advances to Result. Screens with infinite animations (Analyzing/QDots)
-// are driven with explicit pump(Duration) rather than pumpAndSettle.
+// Covers the foundation (state machine, tokens), the pass-2 UI (Home, Analyzing
+// auto-advance, Result, components), and the pass-3 UI (Carousel selection,
+// Download single/multi queue, Success). Screens with running animations
+// (Analyzing/Download controllers, QDots) are driven with explicit
+// pump(Duration) rather than pumpAndSettle.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quietly_media_saver/app/quietly_app.dart';
 import 'package:quietly_media_saver/core/theme/tokens/app_colors.dart';
+import 'package:quietly_media_saver/core/widgets/q_bar.dart';
 import 'package:quietly_media_saver/core/widgets/q_button.dart';
 import 'package:quietly_media_saver/core/widgets/q_media_tile.dart';
 import 'package:quietly_media_saver/core/widgets/q_pill.dart';
 import 'package:quietly_media_saver/features/analyzing/analyzing_screen.dart';
+import 'package:quietly_media_saver/features/carousel/carousel_screen.dart';
+import 'package:quietly_media_saver/features/downloading/downloading_screen.dart';
 import 'package:quietly_media_saver/features/result/result_screen.dart';
+import 'package:quietly_media_saver/features/success/success_screen.dart';
 import 'package:quietly_media_saver/state/app_state.dart';
 import 'package:quietly_media_saver/state/app_state_provider.dart';
 import 'package:quietly_media_saver/state/models/app_enums.dart';
+
+/// Pumps [child] inside an UncontrolledProviderScope bound to [container] and a
+/// MaterialApp, for screen tests that need a pre-seeded AppState.
+Future<void> _pumpScreen(
+  WidgetTester tester,
+  ProviderContainer container,
+  Widget child,
+) {
+  return tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(home: child),
+    ),
+  );
+}
 
 /// Use a phone-sized viewport for full-screen tests.
 void _usePhoneViewport(WidgetTester tester) {
@@ -142,6 +161,105 @@ void main() {
 
       expect(find.text('Available media'), findsOneWidget);
       expect(find.text('Save to gallery'), findsOneWidget);
+    });
+  });
+
+  group('Carousel screen', () {
+    testWidgets('tapping a row updates the selected count', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      // Seed is partial; clear it so the count starts at a known 0.
+      container.read(appStateProvider.notifier).toggleSelectAll(); // → all
+      container.read(appStateProvider.notifier).toggleSelectAll(); // → none
+      await _pumpScreen(tester, container, const CarouselScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('0 selected'), findsOneWidget);
+      await tester.tap(find.byType(QMediaTile).first);
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+    });
+
+    testWidgets('Select all then Clear toggles every item', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const CarouselScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Select all'));
+      await tester.pumpAndSettle();
+      expect(container.read(appStateProvider).allCarouselSelected, isTrue);
+
+      await tester.tap(find.text('Clear'));
+      await tester.pumpAndSettle();
+      expect(container.read(appStateProvider).selectedCount, 0);
+    });
+
+    testWidgets('Save selected opens the permission sheet', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const CarouselScreen());
+      await tester.pumpAndSettle();
+
+      // Seed has items selected → footer offers a Save action.
+      await tester.tap(find.textContaining('Save '));
+      await tester.pumpAndSettle();
+      expect(find.text('Allow access'), findsOneWidget);
+    });
+  });
+
+  group('Download screen', () {
+    testWidgets('renders the single-file ring state', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(appStateProvider.notifier).startDownload(const [
+        MediaKind.video,
+      ]);
+      await _pumpScreen(tester, container, const DownloadingScreen());
+      await tester.pump(
+        const Duration(milliseconds: 50),
+      ); // build; do NOT settle
+
+      expect(find.text('Saving video…'), findsOneWidget);
+    });
+
+    testWidgets('renders the multi-item queue state', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(appStateProvider.notifier).startDownload(const [
+        MediaKind.image,
+        MediaKind.image,
+        MediaKind.video,
+      ]);
+      await _pumpScreen(tester, container, const DownloadingScreen());
+      await tester.pump(
+        const Duration(milliseconds: 50),
+      ); // build; do NOT settle
+
+      expect(find.text('Saving 3 items'), findsOneWidget);
+      expect(find.byType(QBar), findsWidgets);
+    });
+  });
+
+  group('Success screen', () {
+    testWidgets('renders saved confirmation and the three CTAs', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const SuccessScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Saved to gallery'), findsOneWidget);
+      expect(find.text('Open in gallery'), findsOneWidget);
+      expect(find.text('View history'), findsOneWidget);
+      expect(find.text('Save another link'), findsOneWidget);
     });
   });
 

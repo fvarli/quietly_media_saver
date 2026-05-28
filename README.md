@@ -12,6 +12,17 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 3 — Carousel / Download / Success UI
+
+Polishes the remaining core-flow screens with the `Q` library (adds `QBar` for
+linear progress). The full happy path is now clickable: Home → Analyzing →
+Result → Save → permission → Download → Success. Download progress is
+**simulated** (a finite, visual-only `AnimationController` that auto-advances to
+Success; the `AppState` notifier stays pure) — still no real downloader,
+`permission_handler`, or gallery access. "Open in gallery" on Success is a
+placeholder. Media previews stay abstract (Play-Store-safe). See
+`docs/ARCHITECTURE.md` → "Pass 3".
+
 ## Build pass 2 — Home / Analyzing / Result UI
 
 Builds the real core-flow UI plus the shared design-system components

@@ -71,6 +71,49 @@ prototype). Real flow into them arrives with the analysis/queue passes.
 
 ---
 
+## Pass 3 — Carousel / Download / Success UI
+
+Polishes the remaining core-flow screens with the `Q` library. Presentation
+only: no real downloader, `permission_handler`, or gallery/storage. After this
+pass the whole happy path is clickable: Home → Analyzing → Result → (quality) →
+Save → permission → Download → Success.
+
+### New component
+- **`QBar`** (`lib/core/widgets/q_bar.dart`): linear progress (token track +
+  accent fill, rounded), companion to `QRing`. Decorative — the enclosing row
+  carries the semantic label. Used for per-item queue progress.
+
+### Simulated progress (visual-only, notifier stays pure)
+`DownloadingScreen` is a `ConsumerStatefulWidget` with one finite
+`AnimationController` (`kDownloadDuration` ≈ 2.6s) — the same pattern as
+`AnalyzingScreen`. It animates the ring / per-item bars 0→100% and, on
+completion (guarded by `mounted`), calls `AppFlow.finishDownload()` → Success.
+It **never mutates `AppState`** — the queue/items come from `AppState.queue`
+(seeded by `AppStateNotifier.startDownload`); the controller only drives
+visuals. Multi-item bars use a **stagger** so items finish at different times.
+`kDownloadDuration` is exported for test timing.
+
+### Screens
+- **Carousel** (`features/carousel`): `QTopBar` (Select all/Clear) + `QPill`
+  count chip + scrollable `QCard` rows (compact `QMediaTile` + title + mono
+  meta + check), tap toggles via `AppStateNotifier.toggleCarouselItem`; sticky
+  footer `QButton` ("Save N · ≈ X MB", disabled at 0) → `AppFlow.requestSave` →
+  permission sheet → simulated download. `RightsNote(save)`. Reads
+  `selectedCount`/`selectedSizeMb`/`selectedCarousel`/`allCarouselSelected`.
+- **Download** (`features/downloading`): single → big `QRing` + fabricated
+  bytes/speed caption; multi → overall `QRing` + `done/remaining` + scrollable
+  `QCard` rows with `QBar` + completion check. Sticky outline `QButton`
+  "Cancel" → Home. Rows wrapped in progress `Semantics`.
+- **Success** (`features/success`): spring-pop check (finite
+  `TweenAnimationBuilder` on `AppMotion.spring`), saved title/subtitle,
+  `QMediaTile` strip from `lastSaved`, `QPill("Added to your history")`, and
+  three CTAs — "Open in gallery" (**placeholder** → `SnackBar`; no real
+  gallery), "View history" → `AppFlow.openHistory`, "Save another link" → Home.
+
+### Now on `PlaceholderScaffold` (still later): History, Settings, Error only.
+
+---
+
 ## Layering
 
 ```
