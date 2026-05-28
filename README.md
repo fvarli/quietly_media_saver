@@ -12,6 +12,16 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 2 — Home / Analyzing / Result UI
+
+Builds the real core-flow UI plus the shared design-system components
+(`QButton`, `QCard`, `QPill`, `QMediaTile`, `QTopBar`, `QRing`, `QDots`,
+`UrlChip`, `RightsNote`) and a `QIcons` Material-icon mapping layer. Still
+presentation only — no downloader, permissions, or real URL analysis. Analysis
+is simulated (a finite timer auto-advances Analyzing → Result); the clipboard
+card uses a static example URL. Media previews are deliberately abstract
+placeholders (Play-Store-safe). See `docs/ARCHITECTURE.md` → "Pass 2".
+
 ## Build pass 1 — app shell
 
 This pass builds the foundation only: design tokens → `ThemeData`, the

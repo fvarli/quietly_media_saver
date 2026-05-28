@@ -20,8 +20,9 @@ import 'models/download_job.dart';
 import 'models/history_entry.dart';
 
 /// Global app state provider.
-final appStateProvider =
-    NotifierProvider<AppStateNotifier, AppState>(AppStateNotifier.new);
+final appStateProvider = NotifierProvider<AppStateNotifier, AppState>(
+  AppStateNotifier.new,
+);
 
 class AppStateNotifier extends Notifier<AppState> {
   @override
@@ -45,8 +46,11 @@ class AppStateNotifier extends Notifier<AppState> {
   void closeSheet() => state = state.copyWith(clearSheet: true);
 
   /// Select an error variant and move to the error screen.
-  void showError(AppErrorKind error) =>
-      state = state.copyWith(screen: AppScreen.error, error: error, clearSheet: true);
+  void showError(AppErrorKind error) => state = state.copyWith(
+    screen: AppScreen.error,
+    error: error,
+    clearSheet: true,
+  );
 
   // ── Selections / preferences ──────────────────────────────
   void setQuality(String id) => state = state.copyWith(quality: id);
@@ -73,8 +77,9 @@ class AppStateNotifier extends Notifier<AppState> {
     );
   }
 
-  void setAskQuality(bool value) =>
-      state = state.copyWith(toggles: state.toggles.copyWith(askQualityEveryTime: value));
+  void setAskQuality(bool value) => state = state.copyWith(
+    toggles: state.toggles.copyWith(askQualityEveryTime: value),
+  );
 
   void setWifiOnly(bool value) =>
       state = state.copyWith(toggles: state.toggles.copyWith(wifiOnly: value));
@@ -145,7 +150,9 @@ class AppStateNotifier extends Notifier<AppState> {
           )
         : HistoryEntry(
             kind: kinds.isNotEmpty ? kinds.first : MediaKind.video,
-            title: kinds.firstOrNull == MediaKind.image ? 'Image' : 'Video clip',
+            title: kinds.firstOrNull == MediaKind.image
+                ? 'Image'
+                : 'Video clip',
             meta: '${state.quality} · saved',
             time: 'Just now',
             group: HistoryGroup.today,

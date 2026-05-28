@@ -28,10 +28,9 @@ class AppToggles {
     bool? askQualityEveryTime,
     bool? wifiOnly,
     bool? notify,
-  }) =>
-      AppToggles(
-        askQualityEveryTime: askQualityEveryTime ?? this.askQualityEveryTime,
-        wifiOnly: wifiOnly ?? this.wifiOnly,
-        notify: notify ?? this.notify,
-      );
+  }) => AppToggles(
+    askQualityEveryTime: askQualityEveryTime ?? this.askQualityEveryTime,
+    wifiOnly: wifiOnly ?? this.wifiOnly,
+    notify: notify ?? this.notify,
+  );
 }

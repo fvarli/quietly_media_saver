@@ -45,26 +45,26 @@ abstract final class AppRoutes {
 
 /// go_router route name for a given state-machine [screen].
 String routeNameFor(AppScreen screen) => switch (screen) {
-      AppScreen.home => AppRoutes.home,
-      AppScreen.analyzing => AppRoutes.analyzing,
-      AppScreen.result => AppRoutes.result,
-      AppScreen.carousel => AppRoutes.carousel,
-      AppScreen.downloading => AppRoutes.downloading,
-      AppScreen.success => AppRoutes.success,
-      AppScreen.history => AppRoutes.history,
-      AppScreen.settings => AppRoutes.settings,
-      AppScreen.error => AppRoutes.error,
-    };
+  AppScreen.home => AppRoutes.home,
+  AppScreen.analyzing => AppRoutes.analyzing,
+  AppScreen.result => AppRoutes.result,
+  AppScreen.carousel => AppRoutes.carousel,
+  AppScreen.downloading => AppRoutes.downloading,
+  AppScreen.success => AppRoutes.success,
+  AppScreen.history => AppRoutes.history,
+  AppScreen.settings => AppRoutes.settings,
+  AppScreen.error => AppRoutes.error,
+};
 
 /// go_router location/path for a given state-machine [screen].
 String routePathFor(AppScreen screen) => switch (screen) {
-      AppScreen.home => AppRoutes.homePath,
-      AppScreen.analyzing => AppRoutes.analyzingPath,
-      AppScreen.result => AppRoutes.resultPath,
-      AppScreen.carousel => AppRoutes.carouselPath,
-      AppScreen.downloading => AppRoutes.downloadingPath,
-      AppScreen.success => AppRoutes.successPath,
-      AppScreen.history => AppRoutes.historyPath,
-      AppScreen.settings => AppRoutes.settingsPath,
-      AppScreen.error => AppRoutes.errorPath,
-    };
+  AppScreen.home => AppRoutes.homePath,
+  AppScreen.analyzing => AppRoutes.analyzingPath,
+  AppScreen.result => AppRoutes.resultPath,
+  AppScreen.carousel => AppRoutes.carouselPath,
+  AppScreen.downloading => AppRoutes.downloadingPath,
+  AppScreen.success => AppRoutes.successPath,
+  AppScreen.history => AppRoutes.historyPath,
+  AppScreen.settings => AppRoutes.settingsPath,
+  AppScreen.error => AppRoutes.errorPath,
+};

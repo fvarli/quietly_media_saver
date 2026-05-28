@@ -78,9 +78,9 @@ class AppState {
   // ── Derived getters ───────────────────────────────────────
   /// Resolved quality option for [quality].
   QualityOption get qualityOption => kQualityOptions.firstWhere(
-        (o) => o.id == quality,
-        orElse: () => kQualityOptions.first,
-      );
+    (o) => o.id == quality,
+    orElse: () => kQualityOptions.first,
+  );
 
   /// Currently selected carousel items.
   List<CarouselItem> get selectedCarousel =>
@@ -100,11 +100,18 @@ class AppState {
 
   /// History grouped in display order (only non-empty groups).
   List<MapEntry<HistoryGroup, List<HistoryEntry>>> get historyGroups {
-    const order = [HistoryGroup.today, HistoryGroup.yesterday, HistoryGroup.earlier];
+    const order = [
+      HistoryGroup.today,
+      HistoryGroup.yesterday,
+      HistoryGroup.earlier,
+    ];
     return [
       for (final g in order)
         if (history.any((h) => h.group == g))
-          MapEntry(g, history.where((h) => h.group == g).toList(growable: false)),
+          MapEntry(
+            g,
+            history.where((h) => h.group == g).toList(growable: false),
+          ),
     ];
   }
 

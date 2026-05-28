@@ -2,11 +2,72 @@
 
 _Living document. Updated with every structural decision._
 _Pass 1 (2026-05-29): app shell + design tokens + navigation/state skeleton._
+_Pass 2 (2026-05-29): Home/Analyzing/Result UI + shared design-system components._
 
 Quietly is a **rights-aware, Play-Store-safe** media saver: it helps people save
 **public** media they have the rights to. The product spec is the design handoff
 in [`docs/design-handoff/HANDOFF.md`](design-handoff/HANDOFF.md). This file
 records how the Flutter app is structured and **why**.
+
+---
+
+## Pass 2 — Home / Analyzing / Result UI
+
+Builds the real core-flow UI on the pass-1 foundation, plus the reusable
+design-system components the rest of the app will share. Still presentation
+only: no downloader, no `permission_handler`, no real URL analysis.
+
+### Component convention (`Q` prefix)
+Design-system widgets live in `lib/core/widgets/` and are prefixed `Q` to avoid
+clashing with Material (`QButton`, `QCard`, `QPill`, `QMediaTile`, `QTopBar`,
+`QSectionLabel`, `QRing`, `QDots`). Non-colliding helpers keep plain names
+(`RightsNote`, `UrlChip`). All actionable components are ≥48dp and expose
+`Semantics`; decorative icons use `ExcludeSemantics`; text scaling is never
+locked.
+
+| Component | Notes |
+|---|---|
+| `QButton` | 5 variants (primary/soft/ghost/outline/danger) × 3 sizes; optional icon; 0.965 press-scale; button semantics. |
+| `QCard` | Surface + hairline (accent when active) + token shadow; tappable variant adds InkWell + ≥48dp + semantic label. |
+| `QPill` | Tone→token bg/fg pairs; optional icon. |
+| `QMediaTile` | **Abstract** gradient + glyph + diagonal hatch placeholder — never real media (Play-Store safety). Badge/label/dim/locked/selected; image semantics. |
+| `QTopBar` | `PreferredSizeWidget` wizard bar: back (≥48, "Back") + centered title + right slot. |
+| `QRing` / `QDots` | `CustomPaint` progress ring (reused later for downloads) + pulsing thinking dots. |
+| `UrlChip` | Mono URL + trailing status pill (e.g. "Public"). |
+
+### Icons — `QIcons` mapping layer
+`lib/core/icons/q_icons.dart` maps product-level names (`QIcons.link`,
+`QIcons.sliders`, …) to the closest **Material** icons. App code references
+intent, so swapping in the handoff's custom SVG glyph set later is a one-file
+change. (Material icons chosen this pass; custom SVG is deferred polish.)
+
+### Screens
+- **Home** (`features/home`): brand header + history/settings circle buttons,
+  paste hero, **static** clipboard card (example URL → `flow.paste()`; real
+  `Clipboard` read deferred), recent-saves strip (`QMediaTile` from seed),
+  primary CTA, `RightsNote`. Middle is scroll-centered (no overflow on short
+  screens / large text).
+- **Analyzing** (`features/analyzing`): `QRing` + `QDots` + 3-step explainable
+  checklist + `UrlChip`. **Simulated** analysis — a single finite
+  `AnimationController` (`kAnalyzeDuration` = 2.7s) drives both the ring and
+  step completion and, on completion, auto-advances to Result via `AppFlow`.
+  One controller (not several `Timer`s) keeps it deterministic and testable.
+- **Result** (`features/result`): abstract `QMediaTile` preview, source/format
+  `QPill`s, explainable note, quality row (`QCard` → opens the quality sheet,
+  reflecting `AppState.quality` live), "Save to gallery" → existing
+  `AppFlow.requestSave` (pass-1 permission sheet). Share is a no-op placeholder.
+- **Quality sheet**: unchanged behavior; restyled onto `QPill`/`QButton`.
+
+### Testing note
+Only screens with infinite animations (Analyzing's `QDots`/ring) must avoid
+`pumpAndSettle` — their tests advance time with explicit `pump(Duration)`.
+Widget tests set a phone-sized viewport; note the test font renders glyphs much
+wider than real fonts, so row labels that can grow are kept `Flexible`.
+
+### Still on `PlaceholderScaffold` (polished later)
+Carousel, Downloading, Success, History, Settings, Error. Carousel/Error are
+reachable by route but not surfaced from Result (which now matches the
+prototype). Real flow into them arrives with the analysis/queue passes.
 
 ---
 

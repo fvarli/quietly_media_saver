@@ -26,9 +26,7 @@ class SettingsScreen extends ConsumerWidget {
     final notifier = ref.read(appStateProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Settings', style: AppTypography.headline),
-      ),
+      appBar: AppBar(title: Text('Settings', style: AppTypography.headline)),
       body: SafeArea(
         top: false,
         child: ListView(
@@ -64,7 +62,10 @@ class SettingsScreen extends ConsumerWidget {
             ),
             SizedBox(height: AppSpacing.lg),
             Center(
-              child: Text('Quietly · version 1.0.0', style: AppTypography.micro),
+              child: Text(
+                'Quietly · version 1.0.0',
+                style: AppTypography.micro,
+              ),
             ),
           ],
         ),

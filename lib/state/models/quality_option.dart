@@ -34,8 +34,7 @@ class QualityOption {
   final bool recommended;
 
   @override
-  bool operator ==(Object other) =>
-      other is QualityOption && other.id == id;
+  bool operator ==(Object other) => other is QualityOption && other.id == id;
 
   @override
   int get hashCode => id.hashCode;

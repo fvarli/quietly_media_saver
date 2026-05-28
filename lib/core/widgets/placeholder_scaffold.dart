@@ -92,7 +92,9 @@ class PlaceholderScaffold extends StatelessWidget {
                           ),
                           decoration: const BoxDecoration(
                             color: AppColors.accentSoft,
-                            borderRadius: BorderRadius.all(Radius.circular(999)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(999),
+                            ),
                           ),
                           child: Text(
                             screenName.toUpperCase(),
@@ -122,10 +124,7 @@ class PlaceholderScaffold extends StatelessWidget {
                   _ActionButton(action: action),
                 ],
               ],
-              if (footer != null) ...[
-                SizedBox(height: AppSpacing.lg),
-                footer!,
-              ],
+              if (footer != null) ...[SizedBox(height: AppSpacing.lg), footer!],
               SizedBox(height: AppSpacing.lg),
             ],
           ),

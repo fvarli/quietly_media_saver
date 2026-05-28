@@ -30,11 +30,11 @@ class CarouselItem {
   final int? durationSeconds;
 
   CarouselItem copyWith({bool? selected}) => CarouselItem(
-        kind: kind,
-        megabytes: megabytes,
-        selected: selected ?? this.selected,
-        durationSeconds: durationSeconds,
-      );
+    kind: kind,
+    megabytes: megabytes,
+    selected: selected ?? this.selected,
+    durationSeconds: durationSeconds,
+  );
 }
 
 /// Seed carousel data (HANDOFF screen 4), matching the prototype.

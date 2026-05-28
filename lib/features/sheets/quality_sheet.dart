@@ -1,18 +1,20 @@
 // ─────────────────────────────────────────────────────────────
-// Quietly — Quality picker sheet (placeholder)
+// Quietly — Quality picker sheet
 //
-// HANDOFF screen 5: radio list of qualities with a "Recommended" marker, wired
-// to AppState.quality. Presented via showModalBottomSheet (see
-// lib/app/router/sheets.dart). Shell pass uses RadioListTile rows (a11y-ready,
-// ≥48dp); the bespoke card rows + size estimates come next.
+// HANDOFF screen 5: a radio list of qualities with a "Recommended" marker, wired
+// to AppState.quality, presented via showModalBottomSheet (lib/app/router/
+// sheets.dart). Uses RadioListTile rows (a11y-ready, ≥48dp) inside a RadioGroup
+// (Flutter ≥3.32 API), plus the shared QPill / QButton components.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/tokens/app_colors.dart';
+import '../../core/icons/q_icons.dart';
 import '../../core/theme/tokens/app_spacing.dart';
 import '../../core/theme/tokens/app_typography.dart';
+import '../../core/widgets/q_button.dart';
+import '../../core/widgets/q_pill.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/quality_option.dart';
 
@@ -62,7 +64,7 @@ class QualitySheet extends ConsumerWidget {
                       Text(option.label, style: AppTypography.body),
                       if (option.recommended) ...[
                         SizedBox(width: AppSpacing.sm),
-                        const _RecommendedPill(),
+                        const QPill('Recommended', tone: QPillTone.accent),
                       ],
                     ],
                   ),
@@ -71,38 +73,14 @@ class QualitySheet extends ConsumerWidget {
                     style: AppTypography.micro,
                   ),
                 ),
-              SizedBox(height: AppSpacing.sm),
-              FilledButton(
+              SizedBox(height: AppSpacing.md),
+              QButton(
+                label: 'Done',
+                icon: QIcons.check,
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Done'),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecommendedPill extends StatelessWidget {
-  const _RecommendedPill();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs / 2,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.all(Radius.circular(999)),
-      ),
-      child: Text(
-        'Recommended',
-        style: AppTypography.micro.copyWith(
-          color: AppColors.accentInk,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

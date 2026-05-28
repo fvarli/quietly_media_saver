@@ -36,9 +36,9 @@ class DownloadJob {
   bool get isComplete => progress >= 100;
 
   DownloadJob copyWith({int? progress}) => DownloadJob(
-        kind: kind,
-        name: name,
-        meta: meta,
-        progress: progress ?? this.progress,
-      );
+    kind: kind,
+    name: name,
+    meta: meta,
+    progress: progress ?? this.progress,
+  );
 }

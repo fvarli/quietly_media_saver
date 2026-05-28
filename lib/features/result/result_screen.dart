@@ -1,17 +1,31 @@
 // ─────────────────────────────────────────────────────────────
-// Quietly — Result screen (placeholder · single video)
+// Quietly — Result screen (single video)
 //
-// HANDOFF screen 3: a single public video, quality row → quality sheet, save to
-// gallery. Shell pass wires the quality sheet, the save→permission→download
-// flow, the carousel branch, and an error demo. Real media tile + quality card
-// come next.
+// HANDOFF screen 3: an abstract media preview, source/format chips, an
+// explainable note, a quality row that opens the quality sheet, and the
+// "Save to gallery" CTA with its rights note.
+//
+// Pass-2 scope: presentation + sheet wiring only. "Save to gallery" routes
+// through the existing AppFlow.requestSave (permission sheet from pass 1); no
+// real download or permission handling yet. The share action is a no-op
+// placeholder. Quality reflects AppState and updates live when changed.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/flow/app_flow.dart';
-import '../../core/widgets/placeholder_scaffold.dart';
+import '../../core/icons/q_icons.dart';
+import '../../core/theme/tokens/app_colors.dart';
+import '../../core/theme/tokens/app_radius.dart';
+import '../../core/theme/tokens/app_spacing.dart';
+import '../../core/theme/tokens/app_typography.dart';
+import '../../core/widgets/q_button.dart';
+import '../../core/widgets/q_card.dart';
+import '../../core/widgets/q_media_tile.dart';
+import '../../core/widgets/q_pill.dart';
+import '../../core/widgets/q_top_bar.dart';
 import '../../core/widgets/rights_note.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
@@ -23,23 +37,177 @@ class ResultScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
     final quality = ref.watch(appStateProvider).qualityOption;
-    return PlaceholderScaffold(
-      screenName: 'result',
-      appBarTitle: 'Available media',
-      title: 'Public post · 1 video',
-      description:
-          'Selected quality: ${quality.label} · ${quality.tag} (≈ ${quality.size}).',
-      actions: [
-        PlaceholderAction('Save to gallery',
-            () => flow.requestSave(const [MediaKind.video])),
-        PlaceholderAction('Choose quality', flow.openQualitySheet,
-            primary: false),
-        PlaceholderAction('View as carousel', flow.openCarousel,
-            primary: false),
-        PlaceholderAction('Demo: protected error',
-            () => flow.showError(AppErrorKind.protected), primary: false),
+
+    return Scaffold(
+      appBar: QTopBar(
+        title: 'Available media',
+        onBack: () => context.canPop() ? context.pop() : flow.goHome(),
+        right: IconButton(
+          onPressed: () {}, // Share is a no-op placeholder this pass.
+          icon: const Icon(QIcons.share, size: 19),
+          color: AppColors.sub,
+          tooltip: 'Share',
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.xs,
+                  AppSpacing.xl,
+                  0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const QMediaTile(
+                      kind: MediaKind.video,
+                      tone: QTileTone.cool,
+                      radius: AppRadius.xl,
+                      aspectRatio: 4 / 3,
+                      label: 'video',
+                      badge: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(QIcons.play),
+                          SizedBox(width: 3),
+                          Text('0:42'),
+                        ],
+                      ),
+                      semanticLabel: 'Video preview, 42 seconds',
+                    ),
+                    SizedBox(height: AppSpacing.lg),
+                    Text(
+                      'Public post · 1 video',
+                      style: AppTypography.headline.copyWith(fontSize: 18),
+                    ),
+                    SizedBox(height: AppSpacing.sm - 1),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: const [
+                        QPill(
+                          'example.com',
+                          tone: QPillTone.neutral,
+                          icon: QIcons.globe,
+                        ),
+                        QPill('Landscape · MP4', tone: QPillTone.neutral),
+                      ],
+                    ),
+                    SizedBox(height: AppSpacing.md + 2),
+                    _ExplainNote(),
+                    SizedBox(height: AppSpacing.lg),
+                    _QualityRow(
+                      label: '${quality.label} · ${quality.tag}',
+                      sub: '≈ ${quality.size} · tap to change quality',
+                      onTap: flow.openQualitySheet,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.md,
+              ),
+              child: Column(
+                children: [
+                  QButton(
+                    label: 'Save to gallery',
+                    icon: QIcons.download,
+                    onPressed: () => flow.requestSave(const [MediaKind.video]),
+                  ),
+                  SizedBox(height: AppSpacing.md),
+                  const RightsNote(RightsCopy.save),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExplainNote extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ExcludeSemantics(
+          child: Icon(QIcons.info, size: 15, color: AppColors.faintText),
+        ),
+        SizedBox(width: AppSpacing.sm + 1),
+        Expanded(
+          child: Text(
+            'This media is publicly accessible. Choose a quality below, then save it to your gallery.',
+            style: AppTypography.caption.copyWith(color: AppColors.sub),
+          ),
+        ),
       ],
-      footer: const RightsNote(RightsCopy.save),
+    );
+  }
+}
+
+class _QualityRow extends StatelessWidget {
+  const _QualityRow({
+    required this.label,
+    required this.sub,
+    required this.onTap,
+  });
+
+  final String label;
+  final String sub;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return QCard(
+      onTap: onTap,
+      semanticLabel: 'Quality: $label. Tap to change.',
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.accentSoft,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              QIcons.sliders,
+              size: 19,
+              color: AppColors.accent,
+            ),
+          ),
+          SizedBox(width: AppSpacing.md + 1),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTypography.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(sub, style: AppTypography.micro),
+              ],
+            ),
+          ),
+          const Icon(QIcons.chevronDown, size: 18, color: AppColors.faintText),
+        ],
+      ),
     );
   }
 }

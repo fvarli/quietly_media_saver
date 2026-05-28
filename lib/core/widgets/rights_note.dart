@@ -17,7 +17,11 @@ import '../theme/tokens/app_spacing.dart';
 import '../theme/tokens/app_typography.dart';
 
 class RightsNote extends StatelessWidget {
-  const RightsNote(this.message, {super.key, this.icon = Icons.shield_outlined});
+  const RightsNote(
+    this.message, {
+    super.key,
+    this.icon = Icons.shield_outlined,
+  });
 
   final String message;
   final IconData icon;
@@ -31,12 +35,7 @@ class RightsNote extends StatelessWidget {
           child: Icon(icon, size: 15, color: AppColors.faintText),
         ),
         SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            message,
-            style: AppTypography.micro,
-          ),
-        ),
+        Expanded(child: Text(message, style: AppTypography.micro)),
       ],
     );
   }

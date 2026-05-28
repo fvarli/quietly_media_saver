@@ -23,7 +23,7 @@ class DownloadingScreen extends ConsumerWidget {
     final state = ref.watch(appStateProvider);
     final description = state.isMultiDownload
         ? 'Saving ${state.queue.length} items (queue). Per-item progress streams '
-            'are wired in the downloader pass.'
+              'are wired in the downloader pass.'
         : 'Saving 1 item. Ring progress is wired in the downloader pass.';
 
     return PlaceholderScaffold(

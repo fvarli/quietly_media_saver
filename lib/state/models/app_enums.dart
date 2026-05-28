@@ -28,24 +28,10 @@ enum AppScreen {
 
 /// Modal bottom sheets that overlay a screen. `null` = no sheet open, modeled
 /// here as the absence of a value (AppState.sheet is nullable).
-enum AppSheet {
-  quality,
-  permission,
-}
+enum AppSheet { quality, permission }
 
 /// Edge/error variants — keys of ERROR_CONFIG (see lib/state/error_config.dart).
-enum AppErrorKind {
-  protected,
-  invalid,
-  network,
-  unsupported,
-  storage,
-  exists,
-}
+enum AppErrorKind { protected, invalid, network, unsupported, storage, exists }
 
 /// Media kind for tiles/history/queue (`kind` in the prototype seed data).
-enum MediaKind {
-  video,
-  image,
-  carousel,
-}
+enum MediaKind { video, image, carousel }

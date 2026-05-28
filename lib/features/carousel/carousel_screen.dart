@@ -28,7 +28,8 @@ class CarouselScreen extends ConsumerWidget {
       screenName: 'carousel',
       appBarTitle: '$total items found',
       title: 'Select items to save',
-      description: '$count of $total selected · '
+      description:
+          '$count of $total selected · '
           '≈ ${state.selectedSizeMb.toStringAsFixed(1)} MB.',
       actions: [
         PlaceholderAction(
@@ -38,8 +39,8 @@ class CarouselScreen extends ConsumerWidget {
           count == 0
               ? () {}
               : () => flow.requestSave(
-                    state.selectedCarousel.map((i) => i.kind).toList(),
-                  ),
+                  state.selectedCarousel.map((i) => i.kind).toList(),
+                ),
         ),
         PlaceholderAction(
           state.allCarouselSelected ? 'Clear all' : 'Select all',

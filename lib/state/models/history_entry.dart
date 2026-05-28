@@ -42,10 +42,46 @@ class HistoryEntry {
 
 /// Seed history (HANDOFF screen 9), matching the prototype's SEED_HISTORY.
 const List<HistoryEntry> kSeedHistory = <HistoryEntry>[
-  HistoryEntry(kind: MediaKind.video, title: 'Video clip', meta: '1080p · 24 MB', time: '2:14 PM', group: HistoryGroup.today),
-  HistoryEntry(kind: MediaKind.image, title: '3 images', meta: 'JPG · 4.1 MB', time: '11:02 AM', group: HistoryGroup.today),
-  HistoryEntry(kind: MediaKind.image, title: 'Image', meta: 'PNG · 0.9 MB', time: '8:40 PM', group: HistoryGroup.yesterday),
-  HistoryEntry(kind: MediaKind.video, title: 'Video clip', meta: '720p · 12 MB', time: '6:15 PM', group: HistoryGroup.yesterday),
-  HistoryEntry(kind: MediaKind.image, title: 'Image', meta: 'JPG · 1.4 MB', time: 'Mon', group: HistoryGroup.earlier),
-  HistoryEntry(kind: MediaKind.video, title: 'Video clip', meta: '1080p · 30 MB', time: 'Sun', group: HistoryGroup.earlier),
+  HistoryEntry(
+    kind: MediaKind.video,
+    title: 'Video clip',
+    meta: '1080p · 24 MB',
+    time: '2:14 PM',
+    group: HistoryGroup.today,
+  ),
+  HistoryEntry(
+    kind: MediaKind.image,
+    title: '3 images',
+    meta: 'JPG · 4.1 MB',
+    time: '11:02 AM',
+    group: HistoryGroup.today,
+  ),
+  HistoryEntry(
+    kind: MediaKind.image,
+    title: 'Image',
+    meta: 'PNG · 0.9 MB',
+    time: '8:40 PM',
+    group: HistoryGroup.yesterday,
+  ),
+  HistoryEntry(
+    kind: MediaKind.video,
+    title: 'Video clip',
+    meta: '720p · 12 MB',
+    time: '6:15 PM',
+    group: HistoryGroup.yesterday,
+  ),
+  HistoryEntry(
+    kind: MediaKind.image,
+    title: 'Image',
+    meta: 'JPG · 1.4 MB',
+    time: 'Mon',
+    group: HistoryGroup.earlier,
+  ),
+  HistoryEntry(
+    kind: MediaKind.video,
+    title: 'Video clip',
+    meta: '1080p · 30 MB',
+    time: 'Sun',
+    group: HistoryGroup.earlier,
+  ),
 ];
