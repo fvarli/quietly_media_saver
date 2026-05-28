@@ -1,17 +1,41 @@
-# quietly_media_saver
+# Quietly — media saver
 
-A new Flutter project.
+A **rights-aware, Play-Store-safe** mobile media saver. Quietly helps people save
+**public** media they have the rights to — with calm, explainable flows and an
+always-present rights reminder. Private, login-only, and DRM-protected media is
+not supported, by design.
 
-## Getting Started
+## Documentation
 
-This project is a starting point for a Flutter application.
+- **[`docs/design-handoff/HANDOFF.md`](docs/design-handoff/HANDOFF.md)** —
+  authoritative product/design spec (screens, components, tokens, state machine).
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
+  structured and why (layering + key decisions). **Start here for the codebase.**
 
-A few resources to get you started if this is your first Flutter project:
+## Build pass 1 — app shell
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+This pass builds the foundation only: design tokens → `ThemeData`, the
+navigation + state-machine skeleton, and placeholder screens. **No downloader,
+permissions, or backend yet.**
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Navigation:** [go_router](https://pub.dev/packages/go_router) — one route per
+  screen, real back-stack.
+- **State:** [Riverpod](https://pub.dev/packages/flutter_riverpod) — an immutable
+  `AppState` + pure-transition `AppStateNotifier`.
+- **Theme:** light palette mapped from the design tokens; structured so a dark
+  palette can be added later.
+- **Accessibility:** ≥48dp touch targets, WCAG-AA caption contrast, scalable
+  text (never locked), semantics-ready widgets.
+
+### Run / verify
+
+```bash
+flutter pub get
+flutter analyze   # no issues
+flutter test      # shell + state-machine + token tests
+flutter run       # boots to Home; tap through the flow
+```
+
+> Roboto Mono is referenced but not yet bundled — see the fonts note in
+> `docs/ARCHITECTURE.md`. The app falls back to the platform monospace until the
+> `.ttf` is added.
