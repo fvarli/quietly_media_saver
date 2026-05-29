@@ -12,6 +12,23 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 9A — Real direct-media analyzer
+
+The analyzer is now **real** for **direct, publicly accessible media file URLs
+only** (e.g. `https://cdn.host/clip.mp4`, `…/photo.jpg`). `DirectMediaAnalysisService`
+(`lib/services/analysis/`) does a lightweight HTTP probe — prefer `HEAD`, fall
+back to a tiny range `GET` on 405/501 (the full file is **never** downloaded
+during analysis) — and confirms the resource is media via its **Content-Type**
+(`video/*` / `image/*`). A success carries the original URL as `downloadUrl`, so
+the download→gallery pipeline now flows **real bytes**, and Result shows the real
+host / kind / size. A `CompositeMediaAnalysisService` routes the reserved
+`*.example.com` demo URLs to the offline sample (so the demo + tests stay
+network-free) and everything else to the direct analyzer. Strictly legal: **no
+page scraping, no social-platform parsing, no private/login/DRM bypass, no
+platform claims** — anything that isn't a confirmed public media file maps to the
+existing invalid / protected / unsupported / network errors. Tests are
+`MockClient`-only (no real network). See `docs/ARCHITECTURE.md` → "Pass 9A".
+
 ## Build pass 8B — Downloaded bytes → gallery save
 
 Connects the download queue to the gallery: completed downloads now write a real

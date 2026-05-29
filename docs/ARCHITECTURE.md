@@ -520,6 +520,52 @@ synthetic bytes) becomes the saved `HistoryEntry.filePath`.
 
 ---
 
+## Pass 9A — Direct-media analyzer (real, prototype)
+
+Replaces the sample-only analyzer with a **real** one for **direct, publicly
+accessible media FILE URLs only** (e.g. `https://cdn.host/clip.mp4`,
+`…/photo.jpg`). A successful result carries a real `downloadUrl`, so the existing
+download→save pipeline finally flows **real bytes**. This stays inside the
+product's legal boundary: **no page scraping, no social-platform page parsing, no
+private/login/DRM bypass, no platform-specific claims** — anything that isn't a
+confirmed public media file maps to the existing `invalid` / `protected` /
+`unsupported` / `network` errors.
+
+- **`DirectMediaAnalysisService`** (`lib/services/analysis/`, implements the
+  unchanged `MediaAnalysisService`). Injects an `http.Client` (default
+  `http.Client()`) + a `timeout` for tests.
+  - **Probe**: `client.head(uri)`; on `405`/`501` fall back to a tiny range GET
+    (`Range: bytes=0-0`) whose body (≤1 byte) is drained — **the full file is
+    never downloaded during analysis**.
+  - **Content-Type is authoritative**: `video/*` → `MediaKind.video`, `image/*`
+    → `MediaKind.image`. A concrete non-media type (e.g. `text/html`) →
+    `unsupported` (a page is never treated as media). Missing /
+    `application/octet-stream` → fall back to the file extension
+    (`mp4/mov/webm/m4v`, `jpg/jpeg/png/webp/gif`), else `unsupported`.
+  - **Status → failure**: bad syntax / non-`http(s)` → `invalidUrl`;
+    `401/403/407` → `protected`; `404/410` + other `4xx` → `unsupported`;
+    `5xx` + `TimeoutException`/`SocketException`/`http.ClientException` →
+    `network`.
+  - **Result**: single `DetectedMediaItem(kind, sizeMb from content-length /
+    content-range total, downloadUrl = original URL)`; `host` from the URI;
+    default `kQualityOptions` (one direct file, not renditions).
+- **`CompositeMediaAnalysisService`** routes reserved `*.example.com` demo URLs to
+  the offline `SampleMediaAnalysisService` and everything else to the direct
+  analyzer — so the shipped demo and the whole test suite stay deterministic and
+  **network-free**. `mediaAnalysisServiceProvider` builds the composite and
+  disposes the direct client via `ref.onDispose`.
+- **Result screen** now shows the **real** kind + size (the format pill becomes
+  e.g. `Landscape · MP4 · ≈ 25 MB`); the host pill already reflected
+  `analysis.host`. No other UI change.
+- **Tests**: `DirectMediaAnalysisService` unit-tested with an http `MockClient`
+  (mp4/jpg/png/webp, HEAD→range-GET fallback, html→unsupported, 401/403→protected,
+  malformed/`ftp`→invalid, socket/5xx→network); composite routing; and a flow test
+  that drives a direct mp4 URL through Analyzing→Result and asserts the
+  `DownloadRequest` carries the direct URL (`FakeDownloadQueueService.lastRequests`).
+  No real network — every HTTP call is a `MockClient`.
+
+---
+
 ## Layering
 
 ```

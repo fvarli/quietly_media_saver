@@ -36,6 +36,9 @@ import 'package:quietly_media_saver/features/history/history_screen.dart';
 import 'package:quietly_media_saver/features/result/result_screen.dart';
 import 'package:quietly_media_saver/features/settings/settings_screen.dart';
 import 'package:quietly_media_saver/features/success/success_screen.dart';
+import 'package:quietly_media_saver/services/analysis/composite_media_analysis_service.dart';
+import 'package:quietly_media_saver/services/analysis/direct_media_analysis_service.dart';
+import 'package:quietly_media_saver/services/analysis/media_analysis_provider.dart';
 import 'package:quietly_media_saver/services/analysis/media_analysis_service.dart';
 import 'package:quietly_media_saver/services/clipboard/clipboard_service.dart';
 import 'package:quietly_media_saver/services/clipboard/clipboard_service_provider.dart';
@@ -114,6 +117,7 @@ class FakeDownloadQueueService implements DownloadQueueService {
   int resumeCalls = 0;
   int cancelCalls = 0;
   int retryCalls = 0;
+  List<DownloadRequest> lastRequests = const [];
 
   @override
   DownloadQueueState get current => _state;
@@ -123,6 +127,7 @@ class FakeDownloadQueueService implements DownloadQueueService {
 
   @override
   void start(List<DownloadRequest> requests) {
+    lastRequests = requests;
     _set(
       DownloadQueueState([
         for (var i = 0; i < requests.length; i++)
@@ -312,6 +317,10 @@ void _usePhoneViewport(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+/// Expect an [AnalysisException] with a specific [AnalysisFailureKind].
+Matcher throwsAnalysisKind(AnalysisFailureKind kind) =>
+    throwsA(isA<AnalysisException>().having((e) => e.kind, 'kind', kind));
+
 void main() {
   group('App shell', () {
     testWidgets('boots to Home and renders the hero + rights note', (
@@ -460,6 +469,241 @@ void main() {
       );
       expect(toAppErrorKind(AnalysisFailureKind.network), AppErrorKind.network);
     });
+  });
+
+  group('DirectMediaAnalysisService (MockClient)', () {
+    test('mp4 HEAD 200 → single video with downloadUrl + size', () async {
+      var method = '';
+      final svc = DirectMediaAnalysisService(
+        client: MockClient((req) async {
+          method = req.method;
+          return http.Response(
+            '',
+            200,
+            headers: {'content-type': 'video/mp4', 'content-length': '1048576'},
+          );
+        }),
+      );
+      final r = await svc.analyze('https://cdn.test/clip.mp4');
+      expect(method, 'HEAD');
+      expect(r.type, AnalysisResultType.single);
+      expect(r.host, 'cdn.test');
+      expect(r.items.single.kind, MediaKind.video);
+      expect(r.items.single.downloadUrl, 'https://cdn.test/clip.mp4');
+      expect(r.items.single.sizeMb, 1.0); // 1 MiB
+    });
+
+    test('jpg / png / webp content-types → image', () async {
+      const cases = {
+        'photo.jpg': 'image/jpeg',
+        'art.png': 'image/png',
+        'pic.webp': 'image/webp',
+      };
+      for (final e in cases.entries) {
+        final svc = DirectMediaAnalysisService(
+          client: MockClient(
+            (_) async =>
+                http.Response('', 200, headers: {'content-type': e.value}),
+          ),
+        );
+        final r = await svc.analyze('https://cdn.test/${e.key}');
+        expect(r.items.single.kind, MediaKind.image, reason: e.value);
+      }
+    });
+
+    test('HEAD 405 → tiny range GET fallback reads the content-type', () async {
+      final methods = <String>[];
+      final svc = DirectMediaAnalysisService(
+        client: MockClient((req) async {
+          methods.add(req.method);
+          if (req.method == 'HEAD') return http.Response('', 405);
+          return http.Response(
+            'x',
+            206,
+            headers: {
+              'content-type': 'video/mp4',
+              'content-range': 'bytes 0-0/2048',
+            },
+          );
+        }),
+      );
+      final r = await svc.analyze('https://cdn.test/clip.mp4');
+      expect(methods, ['HEAD', 'GET']);
+      expect(r.items.single.kind, MediaKind.video);
+    });
+
+    test('text/html → unsupported (never treated as media)', () async {
+      final svc = DirectMediaAnalysisService(
+        client: MockClient(
+          (_) async => http.Response(
+            '<html></html>',
+            200,
+            headers: {'content-type': 'text/html; charset=utf-8'},
+          ),
+        ),
+      );
+      await expectLater(
+        () => svc.analyze('https://site.test/page'),
+        throwsAnalysisKind(AnalysisFailureKind.unsupported),
+      );
+    });
+
+    test('401 / 403 → protected', () async {
+      for (final code in [401, 403]) {
+        final svc = DirectMediaAnalysisService(
+          client: MockClient((_) async => http.Response('', code)),
+        );
+        await expectLater(
+          () => svc.analyze('https://x.test/a.mp4'),
+          throwsAnalysisKind(AnalysisFailureKind.protected),
+          reason: '$code',
+        );
+      }
+    });
+
+    test('malformed / non-http(s) URL → invalidUrl (no HTTP call)', () async {
+      var calls = 0;
+      final svc = DirectMediaAnalysisService(
+        client: MockClient((_) async {
+          calls++;
+          return http.Response('', 200);
+        }),
+      );
+      await expectLater(
+        () => svc.analyze('not a url'),
+        throwsAnalysisKind(AnalysisFailureKind.invalidUrl),
+      );
+      await expectLater(
+        () => svc.analyze('ftp://host/a.mp4'),
+        throwsAnalysisKind(AnalysisFailureKind.invalidUrl),
+      );
+      expect(calls, 0);
+    });
+
+    test('network error / 5xx → network', () async {
+      final down = DirectMediaAnalysisService(
+        client: MockClient((_) async => throw const SocketException('down')),
+      );
+      await expectLater(
+        () => down.analyze('https://x.test/a.mp4'),
+        throwsAnalysisKind(AnalysisFailureKind.network),
+      );
+      final boom = DirectMediaAnalysisService(
+        client: MockClient((_) async => http.Response('', 500)),
+      );
+      await expectLater(
+        () => boom.analyze('https://x.test/a.mp4'),
+        throwsAnalysisKind(AnalysisFailureKind.network),
+      );
+    });
+  });
+
+  group('CompositeMediaAnalysisService', () {
+    test(
+      '*.example.com routes to the offline sample (direct untouched)',
+      () async {
+        final direct = DirectMediaAnalysisService(
+          client: MockClient(
+            (_) async => throw StateError('direct must not run'),
+          ),
+        );
+        final svc = CompositeMediaAnalysisService(direct: direct);
+        final r = await svc.analyze('https://share.example.com/p/abc');
+        expect(r.type, AnalysisResultType.single); // from the sample
+        expect(r.host, 'share.example.com');
+      },
+    );
+
+    test('other hosts route to the direct analyzer', () async {
+      final direct = DirectMediaAnalysisService(
+        client: MockClient(
+          (req) async => http.Response(
+            '',
+            200,
+            headers: {'content-type': 'image/png', 'content-length': '512000'},
+          ),
+        ),
+      );
+      final svc = CompositeMediaAnalysisService(direct: direct);
+      final r = await svc.analyze('https://cdn.test/a.png');
+      expect(r.items.single.kind, MediaKind.image);
+      expect(r.items.single.downloadUrl, 'https://cdn.test/a.png');
+    });
+  });
+
+  group('Direct-media analyzer (flow)', () {
+    testWidgets(
+      'direct result → Result (host/kind/size) + DownloadRequest URL',
+      (tester) async {
+        _usePhoneViewport(tester);
+        const url = 'https://cdn.test/clip.mp4';
+        final analyzer = DirectMediaAnalysisService(
+          client: MockClient(
+            (_) async => http.Response(
+              '',
+              200,
+              headers: {
+                'content-type': 'video/mp4',
+                'content-length': '26214400', // 25 MiB
+              },
+            ),
+          ),
+        );
+        final connectivity = FakeConnectivityService(online: true);
+        addTearDown(connectivity.dispose);
+        final download = FakeDownloadQueueService();
+        addTearDown(download.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            clipboardServiceProvider.overrideWithValue(
+              FakeClipboardService(url),
+            ),
+            connectivityServiceProvider.overrideWithValue(connectivity),
+            preferencesServiceProvider.overrideWithValue(
+              FakePreferencesService(),
+            ),
+            savedMediaRepositoryProvider.overrideWithValue(
+              FakeSavedMediaRepository(),
+            ),
+            permissionServiceProvider.overrideWithValue(
+              FakePermissionService(requestResult: PermissionStatus.granted),
+            ),
+            downloadQueueServiceProvider.overrideWithValue(download),
+            galleryServiceProvider.overrideWithValue(FakeGalleryService()),
+            mediaAnalysisServiceProvider.overrideWithValue(analyzer),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const QuietlyApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Paste link'));
+        await tester.pump(); // clipboard read + submitUrl
+        await tester.pump(const Duration(milliseconds: 400)); // → Analyzing
+        await tester.pump(
+          kAnalyzeVisualDuration + const Duration(milliseconds: 300),
+        ); // analysis min delay + probe
+        await tester.pump(); // outcome nav
+        await tester.pump(const Duration(milliseconds: 400)); // settle
+
+        expect(find.text('Available media'), findsOneWidget);
+        expect(find.text('cdn.test'), findsOneWidget);
+        expect(find.textContaining('≈ 25 MB'), findsOneWidget);
+
+        // Save → Allow → the download request carries the real direct URL.
+        await tester.tap(find.text('Save to gallery'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Allow access'));
+        await tester.pumpAndSettle();
+        expect(download.lastRequests, hasLength(1));
+        expect(download.lastRequests.first.url, url);
+      },
+    );
   });
 
   group('Analysis + clipboard flow', () {

@@ -48,6 +48,11 @@ class ResultScreen extends ConsumerWidget {
     final kind = item?.kind ?? MediaKind.video;
     final isVideo = kind == MediaKind.video;
     final host = analysis?.host ?? 'example.com';
+    final sizeMb = item?.sizeMb ?? 0;
+    final format = isVideo ? 'Landscape · MP4' : 'JPG';
+    final formatLabel = sizeMb > 0
+        ? '$format · ≈ ${_formatSize(sizeMb)}'
+        : format;
     final count = analysis?.items.length ?? 1;
     final durationLabel = _formatDuration(item?.durationSeconds ?? 42);
     final title =
@@ -116,10 +121,7 @@ class ResultScreen extends ConsumerWidget {
                           tone: QPillTone.neutral,
                           icon: QIcons.globe,
                         ),
-                        QPill(
-                          isVideo ? 'Landscape · MP4' : 'JPG',
-                          tone: QPillTone.neutral,
-                        ),
+                        QPill(formatLabel, tone: QPillTone.neutral),
                       ],
                     ),
                     SizedBox(height: AppSpacing.md + 2),
@@ -162,6 +164,10 @@ class ResultScreen extends ConsumerWidget {
 
 String _formatDuration(int seconds) =>
     '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+/// Compact size label for the detected media (e.g. "24 MB" / "1.4 MB").
+String _formatSize(double mb) =>
+    mb >= 10 ? '${mb.round()} MB' : '${mb.toStringAsFixed(1)} MB';
 
 class _ExplainNote extends StatelessWidget {
   @override
