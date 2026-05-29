@@ -12,6 +12,18 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 5B — Connectivity + persistence foundations
+
+Adds two platform foundations behind the same service/provider/fake pattern and
+a startup **bootstrap** layer (`lib/app/bootstrap/`): real **connectivity**
+(`connectivity_plus`) now drives the Home offline banner, and lightweight
+**preferences** (`shared_preferences`) — selected quality + the three toggles —
+load on startup and persist on change (write-through via a single `ref.listen`,
+so the notifier stays pure). Permission status is intentionally **not** cached
+(OS-authoritative; refreshed at launch). Startup I/O is best-effort/guarded.
+Still **no real download, gallery save, or URL analysis**; tests fake all
+platform services. See `docs/ARCHITECTURE.md` → "Pass 5B".
+
 ## Build pass 5A — Real permission layer
 
 First real platform integration: gallery/media **permission** is now real via

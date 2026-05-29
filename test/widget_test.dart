@@ -1,13 +1,14 @@
-// Quietly — widget + state + token tests (passes 1–5A).
+// Quietly — widget + state + token tests (passes 1–5B).
 //
-// Covers the foundation (state machine, tokens), pass-2 UI (Home/Analyzing/
-// Result/components), pass-3 UI (Carousel/Download/Success), pass-4 UI (History/
-// Settings/Error configs + CTA routing), and pass-5A permissions (mapper, the
-// save→permission→download/error flow, and Settings real-status) via a
-// FakePermissionService override — no real platform channels. Screens with
-// running animations are driven with explicit pump(Duration), not pumpAndSettle;
-// long lazy lists are scrolled with scrollUntilVisible.
+// Covers the foundation, pass-2/3/4 UI, pass-5A permissions, and pass-5B
+// bootstrap (connectivity → offline banner, preference load/persist). All
+// platform layers are faked (permission/connectivity/preferences) — no real
+// platform channels. Screens with running animations use explicit
+// pump(Duration), not pumpAndSettle; long lazy lists use scrollUntilVisible.
 
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,13 +29,18 @@ import 'package:quietly_media_saver/features/history/history_screen.dart';
 import 'package:quietly_media_saver/features/result/result_screen.dart';
 import 'package:quietly_media_saver/features/settings/settings_screen.dart';
 import 'package:quietly_media_saver/features/success/success_screen.dart';
+import 'package:quietly_media_saver/services/connectivity/connectivity_service.dart';
+import 'package:quietly_media_saver/services/connectivity/connectivity_service_provider.dart';
 import 'package:quietly_media_saver/services/permissions/permission_result_mapper.dart';
 import 'package:quietly_media_saver/services/permissions/permission_service.dart';
 import 'package:quietly_media_saver/services/permissions/permission_service_provider.dart';
+import 'package:quietly_media_saver/services/preferences/preferences_service.dart';
+import 'package:quietly_media_saver/services/preferences/preferences_service_provider.dart';
 import 'package:quietly_media_saver/state/app_state.dart';
 import 'package:quietly_media_saver/state/app_state_provider.dart';
 import 'package:quietly_media_saver/state/error_config.dart';
 import 'package:quietly_media_saver/state/models/app_enums.dart';
+import 'package:quietly_media_saver/state/models/app_preferences.dart';
 
 /// In-memory PermissionService for tests — no platform channels.
 class FakePermissionService implements PermissionService {
@@ -57,6 +63,41 @@ class FakePermissionService implements PermissionService {
   Future<bool> openSystemSettings() async {
     openSettingsCalls++;
     return true;
+  }
+}
+
+/// In-memory ConnectivityService for tests — settable + emittable.
+class FakeConnectivityService implements ConnectivityService {
+  FakeConnectivityService({this.online = true});
+
+  bool online;
+  final StreamController<bool> _controller = StreamController<bool>.broadcast();
+
+  @override
+  Future<bool> isOnline() async => online;
+
+  @override
+  Stream<bool> onlineChanges() => _controller.stream;
+
+  void emit(bool value) => _controller.add(value);
+
+  void dispose() => _controller.close();
+}
+
+/// In-memory PreferencesService for tests — no platform channels.
+class FakePreferencesService implements PreferencesService {
+  FakePreferencesService([this.stored = const AppPreferences()]);
+
+  AppPreferences stored;
+  AppPreferences? saved;
+
+  @override
+  Future<AppPreferences> load() async => stored;
+
+  @override
+  Future<void> save(AppPreferences prefs) async {
+    saved = prefs;
+    stored = prefs;
   }
 }
 
@@ -608,6 +649,100 @@ void main() {
       await tester.tap(find.text('Open system settings'));
       await tester.pump();
       expect(fake.openSettingsCalls, 1);
+    });
+  });
+
+  group('Connectivity mapper', () {
+    test('none → offline; any interface → online', () {
+      expect(isOnlineFromResults([ConnectivityResult.none]), isFalse);
+      expect(isOnlineFromResults([]), isFalse);
+      expect(isOnlineFromResults([ConnectivityResult.wifi]), isTrue);
+      expect(
+        isOnlineFromResults([
+          ConnectivityResult.none,
+          ConnectivityResult.mobile,
+        ]),
+        isTrue,
+      );
+    });
+  });
+
+  group('Bootstrap (connectivity + preferences)', () {
+    /// Pumps QuietlyApp with the three platform services faked.
+    Future<ProviderContainer> pumpApp(
+      WidgetTester tester, {
+      required FakeConnectivityService connectivity,
+      required FakePreferencesService preferences,
+      FakePermissionService? permission,
+    }) async {
+      final container = ProviderContainer(
+        overrides: [
+          connectivityServiceProvider.overrideWithValue(connectivity),
+          preferencesServiceProvider.overrideWithValue(preferences),
+          permissionServiceProvider.overrideWithValue(
+            permission ?? FakePermissionService(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(connectivity.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const QuietlyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('loads persisted preferences on startup', (tester) async {
+      _usePhoneViewport(tester);
+      final container = await pumpApp(
+        tester,
+        connectivity: FakeConnectivityService(online: true),
+        preferences: FakePreferencesService(
+          const AppPreferences(quality: '720p', wifiOnly: false),
+        ),
+      );
+
+      final state = container.read(appStateProvider);
+      expect(state.quality, '720p');
+      expect(state.toggles.wifiOnly, isFalse);
+    });
+
+    testWidgets('offline connectivity shows the Home banner; online hides it', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final connectivity = FakeConnectivityService(online: false);
+      await pumpApp(
+        tester,
+        connectivity: connectivity,
+        preferences: FakePreferencesService(),
+      );
+
+      expect(find.textContaining('You’re offline'), findsOneWidget);
+
+      connectivity.emit(true);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('You’re offline'), findsNothing);
+    });
+
+    testWidgets('preference change is persisted via the listener', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final prefs = FakePreferencesService();
+      final container = await pumpApp(
+        tester,
+        connectivity: FakeConnectivityService(online: true),
+        preferences: prefs,
+      );
+
+      container.read(appStateProvider.notifier).setWifiOnly(false);
+      await tester.pump();
+      expect(prefs.saved?.wifiOnly, isFalse);
     });
   });
 

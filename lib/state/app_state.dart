@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'models/app_enums.dart';
+import 'models/app_preferences.dart';
 import 'models/app_toggles.dart';
 import 'models/carousel_item.dart';
 import 'models/download_job.dart';
@@ -106,6 +107,14 @@ class AppState {
 
   /// True when the active download is a multi-file queue.
   bool get isMultiDownload => queue.length > 1;
+
+  /// Snapshot of the persisted preference fields (see [AppPreferences]).
+  AppPreferences get toPreferences => AppPreferences(
+    quality: quality,
+    askQualityEveryTime: toggles.askQualityEveryTime,
+    wifiOnly: toggles.wifiOnly,
+    notify: toggles.notify,
+  );
 
   /// History grouped in display order (only non-empty groups).
   List<MapEntry<HistoryGroup, List<HistoryEntry>>> get historyGroups {

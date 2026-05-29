@@ -220,6 +220,49 @@ the mapper, the three save-flow branches, and Settings real-status.
 
 ---
 
+## Pass 5B — Connectivity + persistence foundations
+
+Two more platform foundations behind the same service/provider/fake pattern,
+plus a startup **bootstrap** layer. Still no download/gallery/file I/O.
+
+### Services
+- `lib/services/connectivity/` — `ConnectivityService` (`isOnline()` +
+  `onlineChanges()`) + `ConnectivityPlusService` (connectivity_plus v7
+  `List<ConnectivityResult>`, mapped via the pure, host-testable
+  `isOnlineFromResults` = "any result ≠ none").
+- `lib/services/preferences/` — `PreferencesService` (`load()` / `save()`) +
+  `SharedPreferencesService` (4 typed keys).
+
+### Persisted slice — `AppPreferences` (lib/state/models)
+Value type (quality + the three toggles) with value equality; defaults match
+`AppState`. `AppState.toPreferences` snapshots it. **Permission status is NOT
+persisted** — it's OS-authoritative and refreshed at startup (caching risks a
+stale "Allowed"). Media/history are not persisted yet.
+
+### Bootstrap — `lib/app/bootstrap/app_bootstrap.dart`
+`AppBootstrap.start()` (run from `QuietlyApp.initState`, now a
+`ConsumerStatefulWidget`): load prefs → apply via pure setters; seed + subscribe
+connectivity → `setOffline`; refresh permission status. **Every step is guarded
+(best-effort)** so a missing channel keeps defaults. `bootstrapProvider`'s create
+body registers a single `ref.listen(appStateProvider, …)` that **write-through
+persists** whenever `toPreferences` changes — so the notifier stays pure and no
+widget touches storage. The connectivity subscription is cancelled via
+`ref.onDispose` (container lifetime).
+
+### Why existing tests stay green
+Guarded bootstrap + the `toPreferences`-diff gate make a no-overrides
+`QuietlyApp` pump a harmless no-op (channels throw → caught → defaults kept → no
+banner); the persist save only fires on a real pref change, which those tests
+never make. Screen tests use `MaterialApp` hosts (no bootstrap). 5B tests inject
+fake connectivity/preferences/permission services.
+
+### Connectivity caveat
+connectivity_plus reports interface presence, **not** internet reachability /
+captive portals — connected-but-no-internet reads as online. Real reachability
+is deferred.
+
+---
+
 ## Layering
 
 ```

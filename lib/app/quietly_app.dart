@@ -16,13 +16,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/a11y/a11y.dart';
 import '../core/theme/app_theme.dart';
+import 'bootstrap/app_bootstrap.dart';
 import 'router/app_router.dart';
 
-class QuietlyApp extends ConsumerWidget {
+class QuietlyApp extends ConsumerStatefulWidget {
   const QuietlyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QuietlyApp> createState() => _QuietlyAppState();
+}
+
+class _QuietlyAppState extends ConsumerState<QuietlyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Startup wiring (load prefs, connectivity, permission refresh). Reading the
+    // provider also registers the preference write-through listener. Best-effort.
+    ref.read(bootstrapProvider).start();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

@@ -14,5 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/quietly_app.dart';
 
 void main() {
+  // Required before any plugin/platform-channel use during startup bootstrap.
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: QuietlyApp()));
 }
