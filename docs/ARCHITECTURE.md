@@ -458,6 +458,41 @@ save-write failure surfaces the `storage` error.
 
 ---
 
+## Pass 8A — Real HTTP download/queue service
+
+Replaces the simulated in-memory queue with `HttpDownloadQueueService`
+(package:http) behind the unchanged `DownloadQueueService` interface.
+
+### Service — `lib/services/downloads/`
+- `http_download_queue_service.dart` (deletes `in_memory_download_queue_service.dart`):
+  sequential per-item processing — **URL present** → streamed `client.send` GET,
+  progress from `Content-Length`, completes/fails per the stream; **URL null** →
+  a sample-bytes timer ramp (with injectable `failItemIds`). Pause/resume via
+  `StreamSubscription.pause()/resume()` (HTTP backpressure — no byte-range) or a
+  paused flag (fallback); cancel/retry as before. Failure → `failed` status →
+  the screen's `ref.listen` maps it to `AppErrorKind.queueItemFailed`. Injectable
+  `http.Client` (default `http.Client()`).
+- `start(List<DownloadRequest>)` (`DownloadRequest {kind, url?}`) replaces
+  `start(List<MediaKind>)`. `DetectedMediaItem.downloadUrl` added (sample analyzer
+  leaves it null). `download_queue_provider` → `HttpDownloadQueueService`.
+
+### Wiring
+`AppFlow.startDownload(kinds)` builds `DownloadRequest`s by pairing kinds with
+`analysis.items[i].downloadUrl` (best-effort by index; null in the demo → ramp
+fallback). Everything else (notifier, screen, `ref.listen` terminal handling,
+`finishDownload` → `gallery.saveSample`) is unchanged.
+
+### Decisions / assumptions
+- Demo uses the **fallback ramp** (sample URLs are null); a real analyzer (next)
+  activates the HTTP path with no rewiring. The gallery still saves **synthetic**
+  bytes — routing *downloaded* bytes into the save is a follow-up.
+- Pause/resume has **no byte-range resume** (live-stream backpressure only).
+- **Tests never hit the network**: widget/flow use `FakeDownloadQueueService`;
+  the fallback ramp is timer-tested; the real HTTP path is tested with
+  `package:http/testing.dart` `MockClient` (in-memory streamed responses + 404).
+
+---
+
 ## Layering
 
 ```

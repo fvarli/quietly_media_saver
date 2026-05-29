@@ -11,10 +11,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'download_models.dart';
 import 'download_queue_service.dart';
-import 'in_memory_download_queue_service.dart';
+import 'http_download_queue_service.dart';
 
 final downloadQueueServiceProvider = Provider<DownloadQueueService>((ref) {
-  final service = InMemoryDownloadQueueService();
+  final service = HttpDownloadQueueService();
   ref.onDispose(service.dispose);
   return service;
 });

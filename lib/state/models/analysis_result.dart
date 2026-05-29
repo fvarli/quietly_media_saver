@@ -24,12 +24,17 @@ class DetectedMediaItem {
     required this.kind,
     required this.sizeMb,
     this.durationSeconds,
+    this.downloadUrl,
   });
 
   final String id;
   final MediaKind kind;
   final double sizeMb;
   final int? durationSeconds;
+
+  /// Direct media URL, when the analyzer can provide one (the sample analyzer
+  /// leaves this null → the download service uses its sample-bytes fallback).
+  final String? downloadUrl;
 }
 
 @immutable

@@ -8,7 +8,6 @@
 // + AppFlow, so AppStateNotifier stays pure.
 // ─────────────────────────────────────────────────────────────
 
-import '../../state/models/app_enums.dart';
 import 'download_models.dart';
 
 abstract interface class DownloadQueueService {
@@ -18,8 +17,9 @@ abstract interface class DownloadQueueService {
   /// The latest queue state (for synchronous reads / seeding the stream).
   DownloadQueueState get current;
 
-  /// Begin a queue for the given media [kinds] (replaces any prior queue).
-  void start(List<MediaKind> kinds);
+  /// Begin a queue for the given [requests] (replaces any prior queue). Each
+  /// request may carry a source URL (real HTTP download) or none (sample bytes).
+  void start(List<DownloadRequest> requests);
 
   /// Pause all in-progress items.
   void pause();

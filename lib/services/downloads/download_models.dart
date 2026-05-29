@@ -22,6 +22,16 @@ enum DownloadItemStatus {
   canceled,
 }
 
+/// What to download: a media [kind] and, when known, the source [url].
+/// A null [url] makes the service fall back to local sample bytes (no network).
+@immutable
+class DownloadRequest {
+  const DownloadRequest(this.kind, {this.url});
+
+  final MediaKind kind;
+  final String? url;
+}
+
 @immutable
 class DownloadItem {
   const DownloadItem({

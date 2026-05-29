@@ -1,12 +1,12 @@
-// Quietly — widget + state + token tests (passes 1–7B).
+// Quietly — widget + state + token tests (passes 1–8A).
 //
 // Covers the foundation, pass-2/3/4 UI, pass-5A–D services, pass-6 analysis +
-// clipboard, and pass-7A/7B gallery/file-save (sample save records a path,
-// save-failure → storage error, dedupe → already-saved, open/share/remove via
-// the service, JSON incl. filePath/sourceKey). All platform layers are faked
-// (no real channels — gal/open_filex/path_provider never run in tests);
-// animated screens use explicit pump(Duration), not pumpAndSettle; long lazy
-// lists use scrollUntilVisible.
+// clipboard, pass-7A/7B gallery/file-save, and pass-8A HTTP downloads (sample-
+// fallback ramp + real streamed download via http MockClient, failure mapping).
+// All platform layers are faked — no real network/channels (http MockClient is
+// in-memory; gal/open_filex/path_provider never run); animated screens use
+// explicit pump(Duration), not pumpAndSettle; long lazy lists use
+// scrollUntilVisible.
 
 import 'dart:async';
 
@@ -14,6 +14,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:quietly_media_saver/app/quietly_app.dart';
 import 'package:quietly_media_saver/app/router/app_router.dart';
@@ -40,7 +42,7 @@ import 'package:quietly_media_saver/services/connectivity/connectivity_service_p
 import 'package:quietly_media_saver/services/downloads/download_models.dart';
 import 'package:quietly_media_saver/services/downloads/download_queue_provider.dart';
 import 'package:quietly_media_saver/services/downloads/download_queue_service.dart';
-import 'package:quietly_media_saver/services/downloads/in_memory_download_queue_service.dart';
+import 'package:quietly_media_saver/services/downloads/http_download_queue_service.dart';
 import 'package:quietly_media_saver/services/gallery/gallery_service.dart';
 import 'package:quietly_media_saver/services/gallery/gallery_service_provider.dart';
 import 'package:quietly_media_saver/services/permissions/permission_result_mapper.dart';
@@ -118,14 +120,16 @@ class FakeDownloadQueueService implements DownloadQueueService {
   Stream<DownloadQueueState> get updates => _controller.stream;
 
   @override
-  void start(List<MediaKind> kinds) {
+  void start(List<DownloadRequest> requests) {
     _set(
       DownloadQueueState([
-        for (var i = 0; i < kinds.length; i++)
+        for (var i = 0; i < requests.length; i++)
           DownloadItem(
             id: 'item_$i',
-            kind: kinds[i],
-            name: kinds[i] == MediaKind.video ? 'clip.mp4' : 'image.jpg',
+            kind: requests[i].kind,
+            name: requests[i].kind == MediaKind.video
+                ? 'clip.mp4'
+                : 'image.jpg',
             meta: 'meta',
             status: DownloadItemStatus.downloading,
           ),
@@ -602,13 +606,20 @@ void main() {
     });
   });
 
-  group('DownloadQueueService (in-memory)', () {
-    // These exercise the real timer-driven impl; the body disposes the service
-    // before completing so no timer is left pending.
+  group('HttpDownloadQueueService — sample fallback (no URL)', () {
+    // null-url requests use the timer ramp; the never-called client is a stub.
+    HttpDownloadQueueService makeService({
+      Set<String> failItemIds = const {},
+    }) => HttpDownloadQueueService(
+      client: MockClient((_) async => http.Response('', 404)),
+      failItemIds: failItemIds,
+    );
+    const videoReq = [DownloadRequest(MediaKind.video)];
+
     testWidgets('starts and emits progress', (tester) async {
       await tester.pumpWidget(const SizedBox());
-      final svc = InMemoryDownloadQueueService();
-      svc.start(const [MediaKind.video]);
+      final svc = makeService();
+      svc.start(videoReq);
       expect(svc.current.items, hasLength(1));
       await tester.pump(const Duration(milliseconds: 360));
       expect(svc.current.overallProgress, greaterThan(0));
@@ -617,8 +628,8 @@ void main() {
 
     testWidgets('pause holds progress; resume continues', (tester) async {
       await tester.pumpWidget(const SizedBox());
-      final svc = InMemoryDownloadQueueService();
-      svc.start(const [MediaKind.video]);
+      final svc = makeService();
+      svc.start(videoReq);
       await tester.pump(const Duration(milliseconds: 240));
       final held = svc.current.overallProgress;
       expect(held, greaterThan(0));
@@ -638,8 +649,8 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(const SizedBox());
-      final svc = InMemoryDownloadQueueService();
-      svc.start(const [MediaKind.video]);
+      final svc = makeService();
+      svc.start(videoReq);
       await tester.pump(const Duration(milliseconds: 120));
       svc.cancel();
       expect(svc.current.items.first.status, DownloadItemStatus.canceled);
@@ -651,9 +662,41 @@ void main() {
 
     testWidgets('a failing item emits a failure', (tester) async {
       await tester.pumpWidget(const SizedBox());
-      final svc = InMemoryDownloadQueueService(failItemIds: const {'item_0'});
-      svc.start(const [MediaKind.video]);
+      final svc = makeService(failItemIds: const {'item_0'});
+      svc.start(videoReq);
       await tester.pump(const Duration(seconds: 2));
+      expect(svc.current.hasFailure, isTrue);
+      svc.dispose();
+    });
+  });
+
+  group('HttpDownloadQueueService — real HTTP (MockClient)', () {
+    test('streamed download completes with progress', () async {
+      // 100-byte body in two chunks with a known Content-Length.
+      final client = MockClient.streaming((request, bodyStream) async {
+        final body = Stream<List<int>>.fromIterable([
+          List.filled(50, 0),
+          List.filled(50, 0),
+        ]);
+        return http.StreamedResponse(body, 200, contentLength: 100);
+      });
+      final svc = HttpDownloadQueueService(client: client);
+      svc.start(const [
+        DownloadRequest(MediaKind.video, url: 'https://demo.example.com/a.mp4'),
+      ]);
+      await svc.updates.firstWhere((s) => s.isComplete || s.hasFailure);
+      expect(svc.current.isComplete, isTrue);
+      expect(svc.current.overallProgress, 1);
+      svc.dispose();
+    });
+
+    test('non-200 response → failure', () async {
+      final client = MockClient((_) async => http.Response('nope', 404));
+      final svc = HttpDownloadQueueService(client: client);
+      svc.start(const [
+        DownloadRequest(MediaKind.image, url: 'https://demo.example.com/x.jpg'),
+      ]);
+      await svc.updates.firstWhere((s) => s.hasFailure || s.isComplete);
       expect(svc.current.hasFailure, isTrue);
       svc.dispose();
     });
@@ -667,7 +710,7 @@ void main() {
     ) async {
       final fake = FakeDownloadQueueService();
       addTearDown(fake.dispose);
-      fake.start(kinds);
+      fake.start([for (final k in kinds) DownloadRequest(k)]);
       final container = ProviderContainer(
         overrides: [downloadQueueServiceProvider.overrideWithValue(fake)],
       );

@@ -23,6 +23,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../services/analysis/media_analysis_provider.dart';
 import '../../services/clipboard/clipboard_service_provider.dart';
+import '../../services/downloads/download_models.dart';
 import '../../services/downloads/download_queue_provider.dart';
 import '../../services/gallery/gallery_service.dart';
 import '../../services/gallery/gallery_service_provider.dart';
@@ -208,7 +209,19 @@ class AppFlow {
   /// comes from the download service.
   void startDownload(List<MediaKind> kinds) {
     _notifier.startDownload(kinds);
-    ref.read(downloadQueueServiceProvider).start(kinds);
+    // Pair each kind with the analyzed item's URL by index (best-effort; sample
+    // URLs are null → the service uses its sample-bytes fallback).
+    final items = ref.read(appStateProvider).analysis?.items;
+    final requests = [
+      for (var i = 0; i < kinds.length; i++)
+        DownloadRequest(
+          kinds[i],
+          url: (items != null && i < items.length)
+              ? items[i].downloadUrl
+              : null,
+        ),
+    ];
+    ref.read(downloadQueueServiceProvider).start(requests);
     context.pushReplacementNamed(AppRoutes.downloading);
   }
 

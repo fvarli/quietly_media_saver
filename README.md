@@ -12,6 +12,19 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 8A — Real HTTP download/queue service
+
+The simulated in-memory queue is replaced by `HttpDownloadQueueService`
+(`package:http`): a real streamed HTTP GET with per-item progress when a media
+item carries a `downloadUrl`, and a local sample-bytes ramp fallback when it
+doesn't. Cancel/retry/pause-resume (stream backpressure, no byte-range) and
+failure→`queueItemFailed` are preserved behind the unchanged
+`DownloadQueueService` interface. The sample analyzer supplies no URLs, so the
+shipped demo uses the fallback (offline, legally safe); a real analyzer (next)
+activates the HTTP path. Tests never hit the network — widget/flow use the fake
+service; the real path is unit-tested with an http `MockClient`. See
+`docs/ARCHITECTURE.md` → "Pass 8A".
+
 ## Build pass 7B — Real OS gallery integration (Android-first)
 
 `OsGalleryService` now inserts saved sample media into the **device gallery**
