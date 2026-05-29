@@ -2,15 +2,16 @@
 // Quietly — Download screen (single + multi queue)
 //
 // HANDOFF screens 6/7: single-file ring progress, or a multi-file queue with
-// per-item bars. Built from QRing / QBar / QCard.
+// per-item bars. Progress now comes from the DownloadQueueService (via
+// downloadQueueStateProvider) — the screen is a thin consumer, not a driver.
 //
-// SIMULATED (no real downloader this pass): a single finite AnimationController
-// drives the visuals 0→100% and, on completion, auto-advances to Success via
-// AppFlow. It is VISUAL ONLY — it never mutates AppState, keeping the notifier
-// pure (the queue/items come from AppState.queue seeded by startDownload). The
-// queue items animate with a stagger so they finish at slightly different times.
-// Cancel returns Home. Like AnalyzingScreen, tests drive it with explicit
-// pump(Duration) (never pumpAndSettle).
+// Terminal states are handled with ref.listen → AppFlow (keeps the notifier
+// pure): all-complete → Success; any failure → the "queueItemFailed" error.
+// Footer controls drive the service: Pause/Resume + Cancel (→ Home).
+//
+// Still simulated (no real network); the simulation lives in the service now.
+// Tests drive it with explicit pump(Duration) (never pumpAndSettle — the
+// service timer only settles at a terminal state).
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
@@ -26,64 +27,33 @@ import '../../core/widgets/q_button.dart';
 import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_ring.dart';
 import '../../core/widgets/q_top_bar.dart';
-import '../../state/app_state_provider.dart';
+import '../../services/downloads/download_models.dart';
+import '../../services/downloads/download_queue_provider.dart';
 import '../../state/models/app_enums.dart';
-import '../../state/models/download_job.dart';
 
-/// Total simulated-download duration before auto-advancing to Success.
-const Duration kDownloadDuration = Duration(milliseconds: 2600);
-
-class DownloadingScreen extends ConsumerStatefulWidget {
+class DownloadingScreen extends ConsumerWidget {
   const DownloadingScreen({super.key});
 
   @override
-  ConsumerState<DownloadingScreen> createState() => _DownloadingScreenState();
-}
-
-class _DownloadingScreenState extends ConsumerState<DownloadingScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: kDownloadDuration,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    _controller
-      ..addStatusListener(_onStatus)
-      ..forward();
-  }
-
-  void _onStatus(AnimationStatus status) {
-    if (status == AnimationStatus.completed && mounted) {
-      AppFlow(context, ref).finishDownload();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller
-      ..removeStatusListener(_onStatus)
-      ..dispose();
-    super.dispose();
-  }
-
-  /// Per-item progress with a stagger so items complete at different times.
-  /// Item i ramps within the window [i*stagger, i*stagger + span].
-  double _itemProgress(double v, int index, int count) {
-    if (count <= 1) return v;
-    const span = 0.7;
-    final stagger = (1 - span) / (count - 1);
-    final start = index * stagger;
-    return ((v - start) / span).clamp(0.0, 1.0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
-    final queue = ref.watch(appStateProvider).queue;
-    final multi = queue.length > 1;
+    final service = ref.read(downloadQueueServiceProvider);
+    final state =
+        ref.watch(downloadQueueStateProvider).value ?? service.current;
+
+    // React to terminal states (navigation lives here, not in the notifier).
+    ref.listen(downloadQueueStateProvider, (_, next) {
+      final s = next.value;
+      if (s == null) return;
+      if (s.isComplete) {
+        flow.finishDownload();
+      } else if (s.hasFailure) {
+        flow.showError(AppErrorKind.queueItemFailed);
+      }
+    });
+
+    final multi = state.isMulti;
+    final paused = state.isPaused;
 
     return Scaffold(
       appBar: QTopBar(title: multi ? 'Saving items' : null),
@@ -92,19 +62,9 @@ class _DownloadingScreenState extends ConsumerState<DownloadingScreen>
         child: Column(
           children: [
             Expanded(
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) {
-                  final v = _controller.value;
-                  return multi
-                      ? _MultiQueue(
-                          value: v,
-                          queue: queue,
-                          itemProgress: _itemProgress,
-                        )
-                      : _SingleProgress(value: v);
-                },
-              ),
+              child: multi
+                  ? _MultiQueue(state: state)
+                  : _SingleProgress(progress: state.overallProgress),
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(
@@ -113,11 +73,26 @@ class _DownloadingScreenState extends ConsumerState<DownloadingScreen>
                 AppSpacing.xl,
                 AppSpacing.lg,
               ),
-              child: QButton(
-                label: 'Cancel',
-                icon: QIcons.close,
-                variant: QButtonVariant.outline,
-                onPressed: flow.goHome,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  QButton(
+                    label: paused ? 'Resume' : 'Pause',
+                    icon: paused ? QIcons.download : QIcons.close,
+                    variant: QButtonVariant.soft,
+                    onPressed: paused ? service.resume : service.pause,
+                  ),
+                  SizedBox(height: AppSpacing.sm + 1),
+                  QButton(
+                    label: 'Cancel',
+                    icon: QIcons.close,
+                    variant: QButtonVariant.outline,
+                    onPressed: () {
+                      service.cancel();
+                      flow.goHome();
+                    },
+                  ),
+                ],
               ),
             ),
           ],
@@ -129,15 +104,15 @@ class _DownloadingScreenState extends ConsumerState<DownloadingScreen>
 
 // ── Single-file progress ────────────────────────────────────────
 class _SingleProgress extends StatelessWidget {
-  const _SingleProgress({required this.value});
+  const _SingleProgress({required this.progress});
 
-  final double value;
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
-    final pct = (value * 100).round();
+    final pct = (progress * 100).round();
     // Fabricated demo figures (no real transfer this pass).
-    final mb = (value * 24).toStringAsFixed(1);
+    final mb = (progress * 24).toStringAsFixed(1);
     return Center(
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl + 6),
@@ -147,7 +122,7 @@ class _SingleProgress extends StatelessWidget {
             Semantics(
               label: 'Saving, $pct percent',
               child: QRing(
-                progress: value,
+                progress: progress,
                 size: 150,
                 strokeWidth: 11,
                 child: Text.rich(
@@ -183,27 +158,16 @@ class _SingleProgress extends StatelessWidget {
 
 // ── Multi-file queue ────────────────────────────────────────────
 class _MultiQueue extends StatelessWidget {
-  const _MultiQueue({
-    required this.value,
-    required this.queue,
-    required this.itemProgress,
-  });
+  const _MultiQueue({required this.state});
 
-  final double value;
-  final List<DownloadJob> queue;
-  final double Function(double v, int index, int count) itemProgress;
+  final DownloadQueueState state;
 
   @override
   Widget build(BuildContext context) {
-    final progresses = [
-      for (var i = 0; i < queue.length; i++)
-        itemProgress(value, i, queue.length),
-    ];
-    final overall = progresses.isEmpty
-        ? 0.0
-        : progresses.reduce((a, b) => a + b) / progresses.length;
-    final done = progresses.where((p) => p >= 1).length;
-    final remaining = queue.length - done;
+    final items = state.items;
+    final overall = state.overallProgress;
+    final done = state.completedCount;
+    final remaining = items.length - done;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -238,7 +202,7 @@ class _MultiQueue extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Saving ${queue.length} items',
+                      'Saving ${items.length} items',
                       style: AppTypography.headline,
                     ),
                     const SizedBox(height: 2),
@@ -262,10 +226,9 @@ class _MultiQueue extends StatelessWidget {
               AppSpacing.xl,
               AppSpacing.lg,
             ),
-            itemCount: queue.length,
+            itemCount: items.length,
             separatorBuilder: (_, _) => SizedBox(height: AppSpacing.sm + 1),
-            itemBuilder: (context, i) =>
-                _QueueRow(job: queue[i], progress: progresses[i]),
+            itemBuilder: (context, i) => _QueueRow(item: items[i]),
           ),
         ),
       ],
@@ -274,19 +237,43 @@ class _MultiQueue extends StatelessWidget {
 }
 
 class _QueueRow extends StatelessWidget {
-  const _QueueRow({required this.job, required this.progress});
+  const _QueueRow({required this.item});
 
-  final DownloadJob job;
-  final double progress;
+  final DownloadItem item;
 
   @override
   Widget build(BuildContext context) {
-    final pct = (progress * 100).round();
-    final complete = progress >= 1;
-    final isVideo = job.kind == MediaKind.video;
+    final pct = (item.progress * 100).round();
+    final complete = item.isComplete;
+    final failed = item.isFailed;
+    final isVideo = item.kind == MediaKind.video;
+
+    final statusText = switch (item.status) {
+      DownloadItemStatus.completed => '${item.meta} · done',
+      DownloadItemStatus.failed => '${item.meta} · failed',
+      DownloadItemStatus.paused => '${item.meta} · paused',
+      DownloadItemStatus.canceled => '${item.meta} · canceled',
+      _ => '${item.meta} · $pct%',
+    };
+
+    final Color iconBg = complete
+        ? AppColors.successSoft
+        : failed
+        ? AppColors.dangerSoft
+        : AppColors.accentSoft;
+    final Color iconFg = complete
+        ? AppColors.success
+        : failed
+        ? AppColors.danger
+        : AppColors.accent;
+    final IconData glyph = complete
+        ? QIcons.check
+        : failed
+        ? QIcons.alert
+        : (isVideo ? QIcons.film : QIcons.image);
 
     return Semantics(
-      label: '${job.name}, ${complete ? 'done' : '$pct percent'}',
+      label: '${item.name}, ${item.status.name}',
       container: true,
       child: QCard(
         padding: const EdgeInsets.all(11),
@@ -298,18 +285,10 @@ class _QueueRow extends StatelessWidget {
                   width: 26,
                   height: 26,
                   decoration: BoxDecoration(
-                    color: complete
-                        ? AppColors.successSoft
-                        : AppColors.accentSoft,
+                    color: iconBg,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    complete
-                        ? QIcons.check
-                        : (isVideo ? QIcons.film : QIcons.image),
-                    size: 15,
-                    color: complete ? AppColors.success : AppColors.accent,
-                  ),
+                  child: Icon(glyph, size: 15, color: iconFg),
                 ),
                 SizedBox(width: AppSpacing.md - 1),
                 Expanded(
@@ -317,16 +296,13 @@ class _QueueRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        job.name,
+                        item.name,
                         style: AppTypography.caption.copyWith(
                           color: AppColors.ink,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Text(
-                        complete ? '${job.meta} · done' : '${job.meta} · $pct%',
-                        style: AppTypography.micro,
-                      ),
+                      Text(statusText, style: AppTypography.micro),
                     ],
                   ),
                 ),
@@ -334,9 +310,9 @@ class _QueueRow extends StatelessWidget {
                   const Icon(QIcons.check, size: 16, color: AppColors.success),
               ],
             ),
-            if (!complete) ...[
+            if (!complete && !failed) ...[
               SizedBox(height: AppSpacing.sm + 1),
-              QBar(progress: progress),
+              QBar(progress: item.progress),
             ],
           ],
         ),

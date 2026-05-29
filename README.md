@@ -12,6 +12,19 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 5C — Download/queue service boundary
+
+Replaces the download screen's local `AnimationController` with a real
+**download/queue service** (`lib/services/downloads/`) behind an interface +
+Riverpod stream provider — per-item progress, start/pause/resume/cancel/retry,
+and failures mapped to `AppErrorKind.queueItemFailed`. The implementation is
+still **in-memory/simulated** (no real network, gallery save, or files yet);
+`DownloadingScreen` is now a thin consumer of the service's progress stream and
+reacts to terminal states via `ref.listen` (complete → Success, failure →
+error). The notifier stays pure. Tests use a timer-free fake for screen flows
+and the real in-memory impl for service-lifecycle tests. See
+`docs/ARCHITECTURE.md` → "Pass 5C".
+
 ## Build pass 5B — Connectivity + persistence foundations
 
 Adds two platform foundations behind the same service/provider/fake pattern and

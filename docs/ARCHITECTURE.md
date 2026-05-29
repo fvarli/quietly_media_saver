@@ -263,6 +263,46 @@ is deferred.
 
 ---
 
+## Pass 5C — Download/queue service boundary (in-memory)
+
+Replaces the pass-3 `AnimationController` inside `DownloadingScreen` with a real
+**download service boundary**; the impl is still simulated (no network).
+
+### Service — `lib/services/downloads/`
+- `download_models.dart` — `DownloadItemStatus`, `DownloadItem` (id, kind, name,
+  meta, progress 0..1, status), `DownloadQueueState` (derived `overallProgress`,
+  `isMulti`, `isPaused`, `hasFailure`, `isComplete`, `isCanceled`); value equality.
+- `download_queue_service.dart` — `DownloadQueueService`: `updates` stream,
+  `current`, `start(kinds)`, `pause/resume/cancel/retry`, `dispose`.
+- `in_memory_download_queue_service.dart` — `Timer.periodic` advances
+  `downloading` items by `step`; at 100% an item completes, or **fails** if its
+  id is in the injectable `failItemIds` (default empty → always completes).
+  pause→cancel timer, resume→restart, cancel→canceled, retry→failed→downloading;
+  cancels the timer at terminal states.
+- `download_queue_provider.dart` — `downloadQueueServiceProvider` +
+  `downloadQueueStateProvider` (StreamProvider that `yield`s `current` first
+  then `updates` → no loading flicker).
+
+### Wiring (notifier stays pure)
+`AppFlow.startDownload` now also calls `service.start(kinds)` (the notifier still
+records `lastSaved`/`screen`/requested `queue` for retry). `DownloadingScreen` is
+a plain `ConsumerWidget` that watches `downloadQueueStateProvider` and uses
+`ref.listen` to react to **terminal** states — `isComplete` →
+`AppFlow.finishDownload()`, `hasFailure` →
+`showError(AppErrorKind.queueItemFailed)` (reusing the pass-4 error + the
+"Retry" CTA → `retryDownload` → restart). Footer: **Pause/Resume** (toggles the
+service) + **Cancel** (`service.cancel()` + `goHome()`). No timers/streams in the
+notifier — only state.
+
+### Testing
+A timer-free `FakeDownloadQueueService` drives screen/flow tests deterministically
+(start/complete/fail/cancel via helpers). The real timer-driven
+`InMemoryDownloadQueueService` is tested inside `testWidgets` (fake clock via
+`pump(Duration)`) and disposed in-body so no timer is left pending. Never
+`pumpAndSettle` the Download screen.
+
+---
+
 ## Layering
 
 ```

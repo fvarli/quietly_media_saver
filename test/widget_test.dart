@@ -1,10 +1,12 @@
-// Quietly — widget + state + token tests (passes 1–5B).
+// Quietly — widget + state + token tests (passes 1–5C).
 //
-// Covers the foundation, pass-2/3/4 UI, pass-5A permissions, and pass-5B
-// bootstrap (connectivity → offline banner, preference load/persist). All
-// platform layers are faked (permission/connectivity/preferences) — no real
-// platform channels. Screens with running animations use explicit
-// pump(Duration), not pumpAndSettle; long lazy lists use scrollUntilVisible.
+// Covers the foundation, pass-2/3/4 UI, pass-5A permissions, pass-5B bootstrap
+// (connectivity/preferences), and pass-5C downloads (queue service lifecycle +
+// the Download screen consuming service progress, completion/failure/cancel).
+// All platform layers are faked (permission/connectivity/preferences/downloads)
+// — no real channels; the timer-driven in-memory queue is tested in-body and
+// disposed before the test ends. Animated screens use explicit pump(Duration),
+// not pumpAndSettle; long lazy lists use scrollUntilVisible.
 
 import 'dart:async';
 
@@ -31,6 +33,10 @@ import 'package:quietly_media_saver/features/settings/settings_screen.dart';
 import 'package:quietly_media_saver/features/success/success_screen.dart';
 import 'package:quietly_media_saver/services/connectivity/connectivity_service.dart';
 import 'package:quietly_media_saver/services/connectivity/connectivity_service_provider.dart';
+import 'package:quietly_media_saver/services/downloads/download_models.dart';
+import 'package:quietly_media_saver/services/downloads/download_queue_provider.dart';
+import 'package:quietly_media_saver/services/downloads/download_queue_service.dart';
+import 'package:quietly_media_saver/services/downloads/in_memory_download_queue_service.dart';
 import 'package:quietly_media_saver/services/permissions/permission_result_mapper.dart';
 import 'package:quietly_media_saver/services/permissions/permission_service.dart';
 import 'package:quietly_media_saver/services/permissions/permission_service_provider.dart';
@@ -82,6 +88,98 @@ class FakeConnectivityService implements ConnectivityService {
   void emit(bool value) => _controller.add(value);
 
   void dispose() => _controller.close();
+}
+
+/// Manual (timer-free) DownloadQueueService for widget/flow tests — state is
+/// driven explicitly via helpers so there are no pending timers.
+class FakeDownloadQueueService implements DownloadQueueService {
+  final StreamController<DownloadQueueState> _controller =
+      StreamController<DownloadQueueState>.broadcast();
+  DownloadQueueState _state = DownloadQueueState.empty;
+  int pauseCalls = 0;
+  int resumeCalls = 0;
+  int cancelCalls = 0;
+  int retryCalls = 0;
+
+  @override
+  DownloadQueueState get current => _state;
+
+  @override
+  Stream<DownloadQueueState> get updates => _controller.stream;
+
+  @override
+  void start(List<MediaKind> kinds) {
+    _set(
+      DownloadQueueState([
+        for (var i = 0; i < kinds.length; i++)
+          DownloadItem(
+            id: 'item_$i',
+            kind: kinds[i],
+            name: kinds[i] == MediaKind.video ? 'clip.mp4' : 'image.jpg',
+            meta: 'meta',
+            status: DownloadItemStatus.downloading,
+          ),
+      ]),
+    );
+  }
+
+  @override
+  void pause() {
+    pauseCalls++;
+    _set(_map(DownloadItemStatus.downloading, DownloadItemStatus.paused));
+  }
+
+  @override
+  void resume() {
+    resumeCalls++;
+    _set(_map(DownloadItemStatus.paused, DownloadItemStatus.downloading));
+  }
+
+  @override
+  void cancel() {
+    cancelCalls++;
+    _set(_map(DownloadItemStatus.downloading, DownloadItemStatus.canceled));
+  }
+
+  @override
+  void retry() {
+    retryCalls++;
+    _set(_map(DownloadItemStatus.failed, DownloadItemStatus.downloading));
+  }
+
+  /// Test helper: mark every item complete.
+  void completeAll() => _set(
+    DownloadQueueState([
+      for (final i in _state.items)
+        i.copyWith(progress: 1, status: DownloadItemStatus.completed),
+    ]),
+  );
+
+  /// Test helper: fail the first item.
+  void failFirst() => _set(
+    DownloadQueueState([
+      for (var i = 0; i < _state.items.length; i++)
+        i == 0
+            ? _state.items[i].copyWith(status: DownloadItemStatus.failed)
+            : _state.items[i],
+    ]),
+  );
+
+  @override
+  void dispose() {
+    if (!_controller.isClosed) _controller.close();
+  }
+
+  DownloadQueueState _map(DownloadItemStatus from, DownloadItemStatus to) =>
+      DownloadQueueState([
+        for (final i in _state.items)
+          i.status == from ? i.copyWith(status: to) : i,
+      ]);
+
+  void _set(DownloadQueueState s) {
+    _state = s;
+    if (!_controller.isClosed) _controller.add(s);
+  }
 }
 
 /// In-memory PreferencesService for tests — no platform channels.
@@ -288,38 +386,107 @@ void main() {
     });
   });
 
-  group('Download screen', () {
-    testWidgets('renders the single-file ring state', (tester) async {
-      _usePhoneViewport(tester);
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      container.read(appStateProvider.notifier).startDownload(const [
-        MediaKind.video,
-      ]);
-      await _pumpScreen(tester, container, const DownloadingScreen());
-      await tester.pump(
-        const Duration(milliseconds: 50),
-      ); // build; do NOT settle
+  group('DownloadQueueService (in-memory)', () {
+    // These exercise the real timer-driven impl; the body disposes the service
+    // before completing so no timer is left pending.
+    testWidgets('starts and emits progress', (tester) async {
+      await tester.pumpWidget(const SizedBox());
+      final svc = InMemoryDownloadQueueService();
+      svc.start(const [MediaKind.video]);
+      expect(svc.current.items, hasLength(1));
+      await tester.pump(const Duration(milliseconds: 360));
+      expect(svc.current.overallProgress, greaterThan(0));
+      svc.dispose();
+    });
 
+    testWidgets('pause holds progress; resume continues', (tester) async {
+      await tester.pumpWidget(const SizedBox());
+      final svc = InMemoryDownloadQueueService();
+      svc.start(const [MediaKind.video]);
+      await tester.pump(const Duration(milliseconds: 240));
+      final held = svc.current.overallProgress;
+      expect(held, greaterThan(0));
+
+      svc.pause();
+      expect(svc.current.isPaused, isTrue);
+      await tester.pump(const Duration(milliseconds: 360));
+      expect(svc.current.overallProgress, held); // unchanged while paused
+
+      svc.resume();
+      await tester.pump(const Duration(milliseconds: 240));
+      expect(svc.current.overallProgress, greaterThan(held));
+      svc.dispose();
+    });
+
+    testWidgets('cancel marks items canceled and stops progress', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const SizedBox());
+      final svc = InMemoryDownloadQueueService();
+      svc.start(const [MediaKind.video]);
+      await tester.pump(const Duration(milliseconds: 120));
+      svc.cancel();
+      expect(svc.current.items.first.status, DownloadItemStatus.canceled);
+      final at = svc.current.overallProgress;
+      await tester.pump(const Duration(milliseconds: 360));
+      expect(svc.current.overallProgress, at); // no further progress
+      svc.dispose();
+    });
+
+    testWidgets('a failing item emits a failure', (tester) async {
+      await tester.pumpWidget(const SizedBox());
+      final svc = InMemoryDownloadQueueService(failItemIds: const {'item_0'});
+      svc.start(const [MediaKind.video]);
+      await tester.pump(const Duration(seconds: 2));
+      expect(svc.current.hasFailure, isTrue);
+      svc.dispose();
+    });
+  });
+
+  group('Download screen (service-driven)', () {
+    /// Pumps DownloadingScreen with a pre-started fake queue (no timers).
+    Future<FakeDownloadQueueService> pumpDownload(
+      WidgetTester tester,
+      List<MediaKind> kinds,
+    ) async {
+      final fake = FakeDownloadQueueService();
+      addTearDown(fake.dispose);
+      fake.start(kinds);
+      final container = ProviderContainer(
+        overrides: [downloadQueueServiceProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const DownloadingScreen());
+      await tester.pump();
+      return fake;
+    }
+
+    testWidgets('renders single-file state from the service', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpDownload(tester, const [MediaKind.video]);
       expect(find.text('Saving video…'), findsOneWidget);
     });
 
-    testWidgets('renders the multi-item queue state', (tester) async {
+    testWidgets('renders multi-queue state from the service', (tester) async {
       _usePhoneViewport(tester);
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      container.read(appStateProvider.notifier).startDownload(const [
+      await pumpDownload(tester, const [
         MediaKind.image,
         MediaKind.image,
         MediaKind.video,
       ]);
-      await _pumpScreen(tester, container, const DownloadingScreen());
-      await tester.pump(
-        const Duration(milliseconds: 50),
-      ); // build; do NOT settle
-
       expect(find.text('Saving 3 items'), findsOneWidget);
       expect(find.byType(QBar), findsWidgets);
+    });
+
+    testWidgets('Pause taps the service; label toggles to Resume', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final fake = await pumpDownload(tester, const [MediaKind.video]);
+      await tester.tap(find.text('Pause'));
+      await tester.pump();
+      expect(fake.pauseCalls, 1);
+      expect(find.text('Resume'), findsOneWidget);
     });
   });
 
@@ -553,14 +720,21 @@ void main() {
     });
   });
 
-  group('Permission save flow', () {
-    Future<FakePermissionService> pumpAtResult(
+  group('Permission + download flow', () {
+    // Pumps the full app at Result with permission + download faked. Returns the
+    // download fake so tests can drive completion/failure deterministically.
+    Future<FakeDownloadQueueService> pumpAtResult(
       WidgetTester tester, {
       required PermissionStatus requestResult,
     }) async {
-      final fake = FakePermissionService(requestResult: requestResult);
+      final permission = FakePermissionService(requestResult: requestResult);
+      final download = FakeDownloadQueueService();
+      addTearDown(download.dispose);
       final container = ProviderContainer(
-        overrides: [permissionServiceProvider.overrideWithValue(fake)],
+        overrides: [
+          permissionServiceProvider.overrideWithValue(permission),
+          downloadQueueServiceProvider.overrideWithValue(download),
+        ],
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(
@@ -572,19 +746,52 @@ void main() {
       await tester.pumpAndSettle();
       container.read(routerProvider).goNamed(AppRoutes.result);
       await tester.pumpAndSettle();
-      return fake;
+      return download;
     }
 
-    testWidgets('Allow + granted → Download', (tester) async {
-      _usePhoneViewport(tester);
-      await pumpAtResult(tester, requestResult: PermissionStatus.granted);
-
+    Future<FakeDownloadQueueService> saveAndAllow(WidgetTester tester) async {
+      final download = await pumpAtResult(
+        tester,
+        requestResult: PermissionStatus.granted,
+      );
       await tester.tap(find.text('Save to gallery'));
       await tester.pumpAndSettle(); // priming sheet in
       await tester.tap(find.text('Allow access'));
-      await tester.pump(); // pop + request
-      await tester.pump(const Duration(milliseconds: 400)); // settle nav
+      await tester.pumpAndSettle(); // request + nav to Download
+      return download;
+    }
+
+    testWidgets('Allow + granted → Download (reflects service)', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      await saveAndAllow(tester);
       expect(find.text('Saving video…'), findsOneWidget);
+    });
+
+    testWidgets('queue completion → Success', (tester) async {
+      _usePhoneViewport(tester);
+      final download = await saveAndAllow(tester);
+      download.completeAll();
+      await tester.pumpAndSettle();
+      expect(find.text('Saved to gallery'), findsOneWidget);
+    });
+
+    testWidgets('queue failure → queueItemFailed error', (tester) async {
+      _usePhoneViewport(tester);
+      final download = await saveAndAllow(tester);
+      download.failFirst();
+      await tester.pumpAndSettle();
+      expect(find.text('A file didn’t save'), findsOneWidget);
+    });
+
+    testWidgets('Cancel returns Home and cancels the queue', (tester) async {
+      _usePhoneViewport(tester);
+      final download = await saveAndAllow(tester);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Paste a link to get started.'), findsOneWidget);
+      expect(download.cancelCalls, 1);
     });
 
     testWidgets('Allow + permanentlyDenied → error screen', (tester) async {

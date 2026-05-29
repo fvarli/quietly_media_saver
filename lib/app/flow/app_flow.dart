@@ -21,6 +21,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../services/downloads/download_queue_provider.dart';
 import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
@@ -141,9 +142,13 @@ class AppFlow {
     _notifier.setPermissionStatus(status);
   }
 
-  /// Enter the download screen (replaces result/carousel).
+  /// Enter the download screen (replaces result/carousel) and start the queue
+  /// service. `notifier.startDownload` keeps the state-machine record
+  /// (`lastSaved`, `screen`, requested `queue`) for retry; the live progress now
+  /// comes from the download service.
   void startDownload(List<MediaKind> kinds) {
     _notifier.startDownload(kinds);
+    ref.read(downloadQueueServiceProvider).start(kinds);
     context.pushReplacementNamed(AppRoutes.downloading);
   }
 
