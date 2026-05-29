@@ -21,6 +21,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../router/app_routes.dart';
@@ -96,22 +97,48 @@ class AppFlow {
   Future<void> openQualitySheet() => showQualitySheet(context, ref);
 
   // ── Save / permission / download ──────────────────────────
-  /// Request a save. If permission is still required, present the permission
-  /// sheet and only proceed when the user allows it; otherwise begin the
-  /// (placeholder) download flow immediately. Navigation runs on [context]
-  /// (the screen), which stays valid after the sheet is dismissed.
+  /// Request a save. If gallery permission is already granted, begin the
+  /// (simulated) download. Otherwise show the priming sheet and, on "Allow",
+  /// make the REAL OS permission request via [PermissionService], record the
+  /// result, and branch: granted → download; permanentlyDenied → the
+  /// "gallery access is off" error; denied → stay (the user can try again).
+  ///
+  /// Platform I/O lives here, not in the notifier. Navigation runs on [context]
+  /// (the screen), guarded across awaits with `context.mounted`.
   Future<void> requestSave(List<MediaKind> kinds) async {
-    final needsPermission = _notifier.requestSave(kinds);
-    if (!needsPermission) {
+    _notifier.requestSave(kinds); // record lastSaved / pendingSave
+    if (ref.read(appStateProvider).permissionGranted) {
       startDownload(kinds);
       return;
     }
+
     final allowed = await showPermissionSheet(context, ref);
-    if (allowed == true && context.mounted) {
-      _notifier.grantPermission();
-      startDownload(kinds);
+    if (allowed != true || !context.mounted) return;
+
+    final result = await ref
+        .read(permissionServiceProvider)
+        .requestGalleryPermission();
+    _notifier.setPermissionStatus(result);
+    if (!context.mounted) return;
+
+    switch (result) {
+      case PermissionStatus.granted:
+        startDownload(kinds);
+      case PermissionStatus.permanentlyDenied:
+        showError(AppErrorKind.permissionDeniedPermanently);
+      case PermissionStatus.denied:
+        break; // stay on the current screen; the user can try again
     }
-    // Declined / dismissed → stay on the current screen (no-op).
+  }
+
+  /// Open the OS app-settings page (permanently-denied recovery).
+  Future<void> openSystemSettings() =>
+      ref.read(permissionServiceProvider).openSystemSettings();
+
+  /// Query the real permission status and record it (e.g. when Settings opens).
+  Future<void> refreshPermissionStatus() async {
+    final status = await ref.read(permissionServiceProvider).galleryStatus();
+    _notifier.setPermissionStatus(status);
   }
 
   /// Enter the download screen (replaces result/carousel).

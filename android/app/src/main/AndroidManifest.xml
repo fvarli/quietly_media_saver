@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Gallery/media read access (Pass 5A). Android 13+ uses scoped media
+         permissions; older Android falls back to read external storage. Write/
+         save permissions are added with the gallery-save pass (5C). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:label="quietly_media_saver"
         android:name="${applicationName}"

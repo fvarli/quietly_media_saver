@@ -169,10 +169,6 @@ class ErrorScreen extends ConsumerWidget {
       context,
       'Saved to your gallery. Opening it arrives with gallery access.',
     );
-    void systemSettings() => _placeholderSnack(
-      context,
-      'Opening system settings arrives with permissions support.',
-    );
 
     return switch (kind) {
       AppErrorKind.network => (
@@ -185,7 +181,8 @@ class ErrorScreen extends ConsumerWidget {
       ),
       AppErrorKind.exists => (primary: gallery, secondary: flow.goHome),
       AppErrorKind.permissionDeniedPermanently => (
-        primary: systemSettings,
+        // Real OS app-settings deep-link.
+        primary: flow.openSystemSettings,
         secondary: flow.goHome,
       ),
       AppErrorKind.queueItemFailed => (

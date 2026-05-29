@@ -1,15 +1,17 @@
-// Quietly — widget + state + token tests (passes 1–4).
+// Quietly — widget + state + token tests (passes 1–5A).
 //
-// Covers the foundation (state machine, tokens), the pass-2 UI (Home, Analyzing
-// auto-advance, Result, components), the pass-3 UI (Carousel, Download, Success),
-// and the pass-4 UI (History grouped/empty, Settings sections, all Error configs,
-// error CTA routing). Screens with running animations (Analyzing/Download
-// controllers, QDots) are driven with explicit pump(Duration), not pumpAndSettle;
+// Covers the foundation (state machine, tokens), pass-2 UI (Home/Analyzing/
+// Result/components), pass-3 UI (Carousel/Download/Success), pass-4 UI (History/
+// Settings/Error configs + CTA routing), and pass-5A permissions (mapper, the
+// save→permission→download/error flow, and Settings real-status) via a
+// FakePermissionService override — no real platform channels. Screens with
+// running animations are driven with explicit pump(Duration), not pumpAndSettle;
 // long lazy lists are scrolled with scrollUntilVisible.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:quietly_media_saver/app/quietly_app.dart';
 import 'package:quietly_media_saver/app/router/app_router.dart';
 import 'package:quietly_media_saver/app/router/app_routes.dart';
@@ -26,10 +28,37 @@ import 'package:quietly_media_saver/features/history/history_screen.dart';
 import 'package:quietly_media_saver/features/result/result_screen.dart';
 import 'package:quietly_media_saver/features/settings/settings_screen.dart';
 import 'package:quietly_media_saver/features/success/success_screen.dart';
+import 'package:quietly_media_saver/services/permissions/permission_result_mapper.dart';
+import 'package:quietly_media_saver/services/permissions/permission_service.dart';
+import 'package:quietly_media_saver/services/permissions/permission_service_provider.dart';
 import 'package:quietly_media_saver/state/app_state.dart';
 import 'package:quietly_media_saver/state/app_state_provider.dart';
 import 'package:quietly_media_saver/state/error_config.dart';
 import 'package:quietly_media_saver/state/models/app_enums.dart';
+
+/// In-memory PermissionService for tests — no platform channels.
+class FakePermissionService implements PermissionService {
+  FakePermissionService({
+    this.requestResult = PermissionStatus.granted,
+    this.statusResult = PermissionStatus.denied,
+  });
+
+  PermissionStatus requestResult;
+  PermissionStatus statusResult;
+  int openSettingsCalls = 0;
+
+  @override
+  Future<PermissionStatus> galleryStatus() async => statusResult;
+
+  @override
+  Future<PermissionStatus> requestGalleryPermission() async => requestResult;
+
+  @override
+  Future<bool> openSystemSettings() async {
+    openSettingsCalls++;
+    return true;
+  }
+}
 
 /// Pumps [child] inside an UncontrolledProviderScope bound to [container] and a
 /// MaterialApp, for screen tests that need a pre-seeded AppState.
@@ -371,9 +400,15 @@ void main() {
   group('Error CTAs (routed)', () {
     Future<ProviderContainer> pumpAtError(
       WidgetTester tester,
-      AppErrorKind kind,
-    ) async {
-      final container = ProviderContainer();
+      AppErrorKind kind, {
+      PermissionService? permissionService,
+    }) async {
+      final container = ProviderContainer(
+        overrides: [
+          if (permissionService != null)
+            permissionServiceProvider.overrideWithValue(permissionService),
+        ],
+      );
       addTearDown(container.dispose);
       container.read(appStateProvider.notifier).showError(kind);
       await tester.pumpWidget(
@@ -409,14 +444,170 @@ void main() {
       expect(find.text('Paste a link to get started.'), findsOneWidget);
     });
 
-    testWidgets('permanently-denied Open settings shows a placeholder', (
+    testWidgets('permanently-denied Open settings calls the service', (
       tester,
     ) async {
       _usePhoneViewport(tester);
-      await pumpAtError(tester, AppErrorKind.permissionDeniedPermanently);
+      final fake = FakePermissionService();
+      await pumpAtError(
+        tester,
+        AppErrorKind.permissionDeniedPermanently,
+        permissionService: fake,
+      );
       await tester.tap(find.text('Open settings'));
-      await tester.pump(); // show SnackBar
-      expect(find.textContaining('permissions support'), findsOneWidget);
+      await tester.pump();
+      expect(fake.openSettingsCalls, 1);
+    });
+  });
+
+  group('Permission mapper', () {
+    test('granted / limited → granted', () {
+      expect(
+        mapPermissionStatus(ph.PermissionStatus.granted),
+        PermissionStatus.granted,
+      );
+      expect(
+        mapPermissionStatus(ph.PermissionStatus.limited),
+        PermissionStatus.granted,
+      );
+    });
+    test('denied → denied', () {
+      expect(
+        mapPermissionStatus(ph.PermissionStatus.denied),
+        PermissionStatus.denied,
+      );
+    });
+    test('permanentlyDenied / restricted → permanentlyDenied', () {
+      expect(
+        mapPermissionStatus(ph.PermissionStatus.permanentlyDenied),
+        PermissionStatus.permanentlyDenied,
+      );
+      expect(
+        mapPermissionStatus(ph.PermissionStatus.restricted),
+        PermissionStatus.permanentlyDenied,
+      );
+    });
+    test('reduce: all granted → granted; any blocked/denied dominates', () {
+      expect(
+        reducePermissionStatuses([
+          ph.PermissionStatus.granted,
+          ph.PermissionStatus.granted,
+        ]),
+        PermissionStatus.granted,
+      );
+      expect(
+        reducePermissionStatuses([
+          ph.PermissionStatus.granted,
+          ph.PermissionStatus.permanentlyDenied,
+        ]),
+        PermissionStatus.permanentlyDenied,
+      );
+      expect(
+        reducePermissionStatuses([
+          ph.PermissionStatus.granted,
+          ph.PermissionStatus.denied,
+        ]),
+        PermissionStatus.denied,
+      );
+    });
+  });
+
+  group('Permission save flow', () {
+    Future<FakePermissionService> pumpAtResult(
+      WidgetTester tester, {
+      required PermissionStatus requestResult,
+    }) async {
+      final fake = FakePermissionService(requestResult: requestResult);
+      final container = ProviderContainer(
+        overrides: [permissionServiceProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const QuietlyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      container.read(routerProvider).goNamed(AppRoutes.result);
+      await tester.pumpAndSettle();
+      return fake;
+    }
+
+    testWidgets('Allow + granted → Download', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAtResult(tester, requestResult: PermissionStatus.granted);
+
+      await tester.tap(find.text('Save to gallery'));
+      await tester.pumpAndSettle(); // priming sheet in
+      await tester.tap(find.text('Allow access'));
+      await tester.pump(); // pop + request
+      await tester.pump(const Duration(milliseconds: 400)); // settle nav
+      expect(find.text('Saving video…'), findsOneWidget);
+    });
+
+    testWidgets('Allow + permanentlyDenied → error screen', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAtResult(
+        tester,
+        requestResult: PermissionStatus.permanentlyDenied,
+      );
+
+      await tester.tap(find.text('Save to gallery'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Allow access'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gallery access is off'), findsOneWidget);
+    });
+
+    testWidgets('Allow + denied → stays on Result', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAtResult(tester, requestResult: PermissionStatus.denied);
+
+      await tester.tap(find.text('Save to gallery'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Allow access'));
+      await tester.pumpAndSettle();
+      expect(find.text('Available media'), findsOneWidget);
+      expect(find.text('Saving video…'), findsNothing);
+    });
+  });
+
+  group('Settings permission status (real)', () {
+    testWidgets('reflects granted status from the service', (tester) async {
+      _usePhoneViewport(tester);
+      final fake = FakePermissionService(
+        statusResult: PermissionStatus.granted,
+      );
+      final container = ProviderContainer(
+        overrides: [permissionServiceProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const SettingsScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Allowed'), findsOneWidget);
+    });
+
+    testWidgets('blocked status shows Open system settings + calls service', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final fake = FakePermissionService(
+        statusResult: PermissionStatus.permanentlyDenied,
+      );
+      final container = ProviderContainer(
+        overrides: [permissionServiceProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const SettingsScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Blocked'), findsOneWidget);
+      expect(find.text('Open system settings'), findsOneWidget);
+      await tester.tap(find.text('Open system settings'));
+      await tester.pump();
+      expect(fake.openSettingsCalls, 1);
     });
   });
 

@@ -1,16 +1,13 @@
 // ─────────────────────────────────────────────────────────────
 // Quietly — Permission request sheet (placeholder)
 //
-// HANDOFF screen 11: ask to save to the gallery; allow / not now. Presented via
-// showModalBottomSheet. The sheet itself performs NO navigation: it simply pops
-// with a bool result (true = allowed). The caller (AppFlow.requestSave) then
-// grants permission and starts the download using the underlying screen's
-// still-valid context — avoiding the defunct-context trap of navigating from a
-// widget that is being torn down.
-//
-// NO real OS permission this pass — permission_handler, permanentlyDenied
-// deep-link, and Android 13+ scoped media (READ_MEDIA_*) are a later pass
-// (HANDOFF §7/§E). The grant only flips the in-memory permissionGranted flag.
+// HANDOFF screen 11: a calm PRIMING sheet that explains why gallery access is
+// needed before the OS prompt. It performs no I/O and no navigation — it simply
+// pops a bool (true = the user tapped "Allow access"). The caller
+// (AppFlow.requestSave) then triggers the REAL permission_handler request on the
+// underlying screen's still-valid context and branches on the result (Pass 5A).
+// This pre-permission priming improves grant rates and keeps the OS dialog from
+// appearing cold.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';

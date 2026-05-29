@@ -22,14 +22,40 @@ import '../../core/theme/tokens/app_spacing.dart';
 import '../../core/theme/tokens/app_typography.dart';
 import '../../core/widgets/q_section_label.dart';
 import '../../core/widgets/rights_note.dart';
+import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _refreshPermissionStatus();
+  }
+
+  /// Reflect the real OS permission status when Settings opens. Resilient to a
+  /// missing platform channel (tests / unsupported platforms): on error the
+  /// current status is kept.
+  Future<void> _refreshPermissionStatus() async {
+    try {
+      final status = await ref.read(permissionServiceProvider).galleryStatus();
+      if (mounted) {
+        ref.read(appStateProvider.notifier).setPermissionStatus(status);
+      }
+    } catch (_) {
+      // Permission channel unavailable — keep the existing status.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final flow = AppFlow(context, ref);
     final state = ref.watch(appStateProvider);
     final notifier = ref.read(appStateProvider.notifier);
@@ -89,10 +115,7 @@ class SettingsScreen extends ConsumerWidget {
                   _SettingsRow(
                     icon: QIcons.settings,
                     label: 'Open system settings',
-                    onTap: () => _snack(
-                      context,
-                      'Opening system settings arrives with permissions support.',
-                    ),
+                    onTap: flow.openSystemSettings,
                   ),
                 _SettingsRow(
                   icon: QIcons.bell,

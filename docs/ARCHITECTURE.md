@@ -169,6 +169,57 @@ honest SnackBars (the pass-3 "Open in gallery" pattern) rather than dead taps.
 
 ---
 
+## Pass 5A — Permission layer (permission_handler)
+
+First real platform integration: the gallery/media **permission** becomes real,
+mapped onto the existing `PermissionStatus`. Still no download/gallery/file I/O.
+
+### Service layer — `lib/services/permissions/`
+- `permission_service.dart` — `abstract interface class PermissionService`
+  (`galleryStatus` / `requestGalleryPermission` / `openSystemSettings`) +
+  `PlatformPermissionService` (permission_handler + device_info_plus). The impl
+  picks the permission set per platform/OS — Android 13+ (`sdkInt >= 33`)
+  `[photos, videos]`, older Android `[storage]`, iOS `[photos]` — and **reduces**
+  multi-permission results to one status.
+- `permission_result_mapper.dart` — pure `mapPermissionStatus(ph.PermissionStatus)`
+  + `reducePermissionStatuses(...)` → our enum (granted/limited→granted,
+  permanentlyDenied/restricted→permanentlyDenied, else denied). Imports
+  permission_handler as `ph` to avoid the `PermissionStatus` name clash.
+  Host-unit-testable.
+- `permission_service_provider.dart` — `permissionServiceProvider`
+  (`Provider<PermissionService>`), overridden with a fake in tests.
+
+### Wiring (platform I/O in the service/flow layer; notifier stays pure)
+- `AppFlow.requestSave`: if already granted → download; else show the priming
+  `PermissionSheet`, then on "Allow" call the **real** request, record it via
+  `setPermissionStatus`, and branch — granted→download,
+  permanentlyDenied→`permissionDeniedPermanently` error, denied→stay. `context`
+  guarded across awaits.
+- New `AppFlow.openSystemSettings()` (→ `openAppSettings()`) and
+  `refreshPermissionStatus()`.
+- Error screen `permissionDeniedPermanently` "Open settings" → real
+  `openSystemSettings` (was a SnackBar).
+- Settings is now a `ConsumerStatefulWidget`: `initState` refreshes the real
+  status (resilient via try/catch when the channel is absent); the row shows
+  Allowed / Not allowed / Blocked; "Open system settings" calls the service.
+- `PermissionSheet` stays a pure priming sheet (pops a bool); the OS prompt
+  fires from `AppFlow` afterward.
+
+### Testing
+A `FakePermissionService` (configurable request/status results; counts
+`openSystemSettings`) is injected via `permissionServiceProvider.overrideWithValue`.
+`device_info_plus`/permission_handler channels are never touched in tests. Covers
+the mapper, the three save-flow branches, and Settings real-status.
+
+### Platform config / assumptions
+- Android manifest: `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, and
+  `READ_EXTERNAL_STORAGE` (`maxSdkVersion=32`). Write/save perms → Pass 5C.
+- iOS: `NSPhotoLibraryUsageDescription` added; `limited` treated as granted;
+  add-only (`NSPhotoLibraryAddUsageDescription`) + Podfile `PERMISSION_PHOTOS=1`
+  macro deferred to the save pass / device build.
+
+---
+
 ## Layering
 
 ```

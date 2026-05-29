@@ -12,6 +12,19 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 5A — Real permission layer
+
+First real platform integration: gallery/media **permission** is now real via
+`permission_handler`, behind a `PermissionService` interface + Riverpod provider
+(`lib/services/permissions/`), mapped onto the existing `PermissionStatus`.
+`AppFlow` makes the OS request after the priming sheet and branches
+granted→download / permanently-denied→"Gallery access is off" error / denied→stay;
+Settings shows the real status and can open system settings. Android 13+ uses
+scoped media perms (`READ_MEDIA_IMAGES/VIDEO`) with a storage fallback for older
+Android; iOS uses Photos (`NSPhotoLibraryUsageDescription`). Still **no real
+download, gallery save, or file access**. Tests inject a fake service — no real
+platform channels. See `docs/ARCHITECTURE.md` → "Pass 5A".
+
 ## Build pass 4 — History / Settings / Error states
 
 Completes the remaining UI surfaces: day-grouped **History** (with empty state +
