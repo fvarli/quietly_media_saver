@@ -107,4 +107,24 @@ const Map<AppErrorKind, ErrorConfig> kErrorConfig = <AppErrorKind, ErrorConfig>{
     tone: ErrorTone.success,
     secondary: 'Save a copy',
   ),
+  AppErrorKind.permissionDeniedPermanently: ErrorConfig(
+    icon: 'settings',
+    title: 'Gallery access is off',
+    body:
+        'Quietly needs permission to save to your gallery. It’s currently turned off in your system settings — turn it back on to keep saving.',
+    cta: 'Open settings',
+    ctaIcon: 'settings',
+    tone: ErrorTone.warn,
+    secondary: 'Not now',
+  ),
+  AppErrorKind.queueItemFailed: ErrorConfig(
+    icon: 'alert',
+    title: 'A file didn’t save',
+    body:
+        'Something interrupted this item. Your other saves are safe — you can try this one again.',
+    cta: 'Retry',
+    ctaIcon: 'refresh',
+    tone: ErrorTone.warn,
+    secondary: 'Skip it',
+  ),
 };

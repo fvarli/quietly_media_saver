@@ -97,8 +97,26 @@ class AppStateNotifier extends Notifier<AppState> {
   }
 
   /// Grant permission (mirrors `app.grantPermission`). Closes the sheet.
-  void grantPermission() =>
-      state = state.copyWith(permissionGranted: true, clearSheet: true);
+  void grantPermission() => state = state.copyWith(
+    permissionStatus: PermissionStatus.granted,
+    clearSheet: true,
+  );
+
+  /// Set the gallery permission status (no OS this pass; Pass 5 maps the real
+  /// permission_handler result here).
+  void setPermissionStatus(PermissionStatus status) =>
+      state = state.copyWith(permissionStatus: status);
+
+  /// Toggle the offline banner state (real connectivity detection in Pass 5).
+  void setOffline(bool value) => state = state.copyWith(offline: value);
+
+  /// Clear all saved history (Settings → Clear history). In-memory only.
+  void clearHistory() => state = state.copyWith(history: const []);
+
+  /// Remove a single history entry by identity (History row action).
+  void removeHistoryEntry(HistoryEntry entry) => state = state.copyWith(
+    history: state.history.where((h) => !identical(h, entry)).toList(),
+  );
 
   /// Prepare the download (mirrors `app.startDownload`) — builds the queue for
   /// multi-saves or resets single-file progress. No bytes are transferred this

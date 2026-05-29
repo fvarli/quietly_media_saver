@@ -56,4 +56,5 @@ abstract final class QIcons {
   static const IconData lock = Icons.lock_outline;
   static const IconData alert = Icons.warning_amber_rounded;
   static const IconData external = Icons.open_in_new;
+  static const IconData theme = Icons.dark_mode_outlined;
 }

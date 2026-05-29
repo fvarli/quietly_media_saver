@@ -31,7 +31,8 @@ class AppState {
     this.screen = AppScreen.home,
     this.sheet,
     this.error = AppErrorKind.protected,
-    this.permissionGranted = false,
+    this.permissionStatus = PermissionStatus.denied,
+    this.offline = false,
     this.quality = '1080p',
     this.progress = 0,
     this.history = kSeedHistory,
@@ -52,8 +53,16 @@ class AppState {
   /// Selected error config when [screen] is [AppScreen.error].
   final AppErrorKind error;
 
-  /// Whether gallery/storage permission has been granted (in-memory this pass).
-  final bool permissionGranted;
+  /// Gallery/storage permission status (in-memory this pass; mapped from the OS
+  /// in Pass 5). [permissionGranted] is derived from it.
+  final PermissionStatus permissionStatus;
+
+  /// Whether the device is offline (drives the Home banner). Set via the
+  /// notifier; real connectivity detection arrives in Pass 5.
+  final bool offline;
+
+  /// Whether gallery/storage permission has been granted.
+  bool get permissionGranted => permissionStatus == PermissionStatus.granted;
 
   /// Selected quality option id (see [kQualityOptions]).
   final String quality;
@@ -120,7 +129,8 @@ class AppState {
     AppSheet? sheet,
     bool clearSheet = false,
     AppErrorKind? error,
-    bool? permissionGranted,
+    PermissionStatus? permissionStatus,
+    bool? offline,
     String? quality,
     int? progress,
     List<HistoryEntry>? history,
@@ -134,7 +144,8 @@ class AppState {
       screen: screen ?? this.screen,
       sheet: clearSheet ? null : (sheet ?? this.sheet),
       error: error ?? this.error,
-      permissionGranted: permissionGranted ?? this.permissionGranted,
+      permissionStatus: permissionStatus ?? this.permissionStatus,
+      offline: offline ?? this.offline,
       quality: quality ?? this.quality,
       progress: progress ?? this.progress,
       history: history ?? this.history,

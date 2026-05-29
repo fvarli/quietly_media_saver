@@ -1,15 +1,18 @@
-// Quietly — widget + state + token tests (passes 1–3).
+// Quietly — widget + state + token tests (passes 1–4).
 //
 // Covers the foundation (state machine, tokens), the pass-2 UI (Home, Analyzing
-// auto-advance, Result, components), and the pass-3 UI (Carousel selection,
-// Download single/multi queue, Success). Screens with running animations
-// (Analyzing/Download controllers, QDots) are driven with explicit
-// pump(Duration) rather than pumpAndSettle.
+// auto-advance, Result, components), the pass-3 UI (Carousel, Download, Success),
+// and the pass-4 UI (History grouped/empty, Settings sections, all Error configs,
+// error CTA routing). Screens with running animations (Analyzing/Download
+// controllers, QDots) are driven with explicit pump(Duration), not pumpAndSettle;
+// long lazy lists are scrolled with scrollUntilVisible.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quietly_media_saver/app/quietly_app.dart';
+import 'package:quietly_media_saver/app/router/app_router.dart';
+import 'package:quietly_media_saver/app/router/app_routes.dart';
 import 'package:quietly_media_saver/core/theme/tokens/app_colors.dart';
 import 'package:quietly_media_saver/core/widgets/q_bar.dart';
 import 'package:quietly_media_saver/core/widgets/q_button.dart';
@@ -18,10 +21,14 @@ import 'package:quietly_media_saver/core/widgets/q_pill.dart';
 import 'package:quietly_media_saver/features/analyzing/analyzing_screen.dart';
 import 'package:quietly_media_saver/features/carousel/carousel_screen.dart';
 import 'package:quietly_media_saver/features/downloading/downloading_screen.dart';
+import 'package:quietly_media_saver/features/error/error_screen.dart';
+import 'package:quietly_media_saver/features/history/history_screen.dart';
 import 'package:quietly_media_saver/features/result/result_screen.dart';
+import 'package:quietly_media_saver/features/settings/settings_screen.dart';
 import 'package:quietly_media_saver/features/success/success_screen.dart';
 import 'package:quietly_media_saver/state/app_state.dart';
 import 'package:quietly_media_saver/state/app_state_provider.dart';
+import 'package:quietly_media_saver/state/error_config.dart';
 import 'package:quietly_media_saver/state/models/app_enums.dart';
 
 /// Pumps [child] inside an UncontrolledProviderScope bound to [container] and a
@@ -260,6 +267,156 @@ void main() {
       expect(find.text('Open in gallery'), findsOneWidget);
       expect(find.text('View history'), findsOneWidget);
       expect(find.text('Save another link'), findsOneWidget);
+    });
+  });
+
+  group('History screen', () {
+    testWidgets('renders day-grouped seeded entries + storage summary', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const HistoryScreen());
+      await tester.pumpAndSettle();
+
+      // QSectionLabel uppercases its text.
+      expect(find.text('TODAY'), findsOneWidget);
+      expect(find.text('YESTERDAY'), findsOneWidget);
+      expect(find.text('EARLIER'), findsOneWidget);
+      expect(find.text('Video clip'), findsWidgets);
+      expect(find.textContaining('saves · 248 MB used'), findsOneWidget);
+    });
+
+    testWidgets('renders the empty state when history is cleared', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(appStateProvider.notifier).clearHistory();
+      await _pumpScreen(tester, container, const HistoryScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('No saves yet'), findsOneWidget);
+      expect(find.text('TODAY'), findsNothing);
+    });
+  });
+
+  group('Settings screen', () {
+    testWidgets('renders rights/legal, permission and storage sections', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const SettingsScreen());
+      await tester.pumpAndSettle();
+
+      // Near the top of the (long, lazy) list.
+      expect(find.text('Save to gallery'), findsOneWidget); // permissions
+      expect(find.text('Clear history'), findsOneWidget); // storage
+
+      // Legal + rights statement are further down — scroll them into view.
+      await tester.scrollUntilVisible(
+        find.text('Acceptable use & your rights'),
+        250,
+      );
+      expect(find.text('Acceptable use & your rights'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.textContaining('Quietly saves only publicly accessible media'),
+        250,
+      );
+      expect(
+        find.textContaining('Quietly saves only publicly accessible media'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows Open system settings when permission not granted', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(appStateProvider.notifier)
+          .setPermissionStatus(PermissionStatus.permanentlyDenied);
+      await _pumpScreen(tester, container, const SettingsScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open system settings'), findsOneWidget);
+      expect(find.text('Blocked'), findsOneWidget);
+    });
+  });
+
+  group('Error screen', () {
+    testWidgets('renders title + CTA for every error kind', (tester) async {
+      _usePhoneViewport(tester);
+      for (final kind in AppErrorKind.values) {
+        final container = ProviderContainer();
+        container.read(appStateProvider.notifier).showError(kind);
+        await _pumpScreen(tester, container, const ErrorScreen());
+        await tester.pumpAndSettle();
+
+        final cfg = kErrorConfig[kind]!;
+        expect(find.text(cfg.title), findsOneWidget, reason: 'title for $kind');
+        expect(find.text(cfg.cta), findsOneWidget, reason: 'cta for $kind');
+        container.dispose();
+      }
+    });
+  });
+
+  group('Error CTAs (routed)', () {
+    Future<ProviderContainer> pumpAtError(
+      WidgetTester tester,
+      AppErrorKind kind,
+    ) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(appStateProvider.notifier).showError(kind);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const QuietlyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      container.read(routerProvider).goNamed(AppRoutes.error);
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('network Retry routes to Analyzing', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAtError(tester, AppErrorKind.network);
+      expect(find.text('Couldn’t reach this link'), findsOneWidget);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pump(); // begin navigation
+      await tester.pump(
+        const Duration(milliseconds: 400),
+      ); // settle; no settle()
+      expect(find.text('Reading this link'), findsOneWidget);
+    });
+
+    testWidgets('protected Try another link routes Home', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAtError(tester, AppErrorKind.protected);
+      await tester.tap(find.text('Try another link'));
+      await tester.pumpAndSettle();
+      expect(find.text('Paste a link to get started.'), findsOneWidget);
+    });
+
+    testWidgets('permanently-denied Open settings shows a placeholder', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      await pumpAtError(tester, AppErrorKind.permissionDeniedPermanently);
+      await tester.tap(find.text('Open settings'));
+      await tester.pump(); // show SnackBar
+      expect(find.textContaining('permissions support'), findsOneWidget);
     });
   });
 

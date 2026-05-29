@@ -77,6 +77,21 @@ class AppFlow {
     context.pushReplacementNamed(AppRoutes.error);
   }
 
+  /// Retry analysis after a network/edge error → back to Analyzing (replaces
+  /// the error screen). No real analysis yet (simulated on AnalyzingScreen).
+  void retryAnalysis() {
+    _notifier.paste();
+    context.pushReplacementNamed(AppRoutes.analyzing);
+  }
+
+  /// Retry a failed download → re-enter Download with the last requested kinds
+  /// (replaces the error screen). No real downloader yet (simulated).
+  void retryDownload() {
+    final kinds = ref.read(appStateProvider).lastSaved;
+    _notifier.startDownload(kinds);
+    context.pushReplacementNamed(AppRoutes.downloading);
+  }
+
   // ── Sheets ────────────────────────────────────────────────
   Future<void> openQualitySheet() => showQualitySheet(context, ref);
 

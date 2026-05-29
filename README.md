@@ -12,6 +12,19 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 4 — History / Settings / Error states
+
+Completes the remaining UI surfaces: day-grouped **History** (with empty state +
+per-row open/share/remove), calm grouped **Settings** (downloads, permissions,
+storage, appearance, legal + the rights statement), and one config-driven
+**ErrorScreen** covering all 8 edge states (incl. permanently-denied permission
+and queue-item-failed) with Retry / Try-another / Open-settings CTAs. Adds a
+lightweight Home **offline banner** and a `PermissionStatus`
+(granted/denied/permanentlyDenied) model. Still no `permission_handler`,
+downloader, or gallery/storage — not-yet-real actions surface honest placeholder
+SnackBars. **Every screen now has real UI.** See `docs/ARCHITECTURE.md` →
+"Pass 4".
+
 ## Build pass 3 — Carousel / Download / Success UI
 
 Polishes the remaining core-flow screens with the `Q` library (adds `QBar` for

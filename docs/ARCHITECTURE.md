@@ -114,6 +114,61 @@ visuals. Multi-item bars use a **stagger** so items finish at different times.
 
 ---
 
+## Pass 4 — History / Settings / Error states
+
+Completes the remaining non-service UI surfaces, plus an offline banner and
+retry/try-again UX. Presentation + pure-state only: no `permission_handler`,
+downloader, or gallery/storage. After this pass **every screen has real UI**;
+`PlaceholderScaffold` is unused (kept as documentation of the shell pattern).
+
+### Model additions (notifier stays pure)
+- `AppErrorKind` gains `permissionDeniedPermanently`, `queueItemFailed` (now 8).
+- New `PermissionStatus { granted, denied, permanentlyDenied }`. `AppState`
+  replaces the `permissionGranted` **bool** with a `permissionStatus` field +
+  a derived `bool get permissionGranted` (call sites/tests unchanged). This is
+  the exact shape Pass 5's `permission_handler` will map onto.
+- `AppState.offline` (bool) drives the Home banner.
+- New pure notifier methods: `grantPermission` (→ granted), `setPermissionStatus`,
+  `setOffline`, `clearHistory`, `removeHistoryEntry` (by identity).
+- `kErrorConfig` gains the two new configs (data-only; still no Flutter import).
+
+### Config-driven ErrorScreen
+One screen renders all 8 kinds from `kErrorConfig` (tone badge, title, body,
+optional "You can try" tips, CTAs, refusal `RightsNote` for protected/
+unsupported). The UI layer maps the config's string `icon`/`ctaIcon` → `QIcons`
+(`_errorIcon`) and `tone` → token colors, and resolves **per-kind CTA actions**
+in one `switch` over `AppErrorKind` using `AppFlow` + placeholder SnackBars:
+- network → Retry = `retryAnalysis`; queueItemFailed → Retry = `retryDownload`
+  (both new `AppFlow` methods that re-enter Analyzing/Download, replacing the
+  error in the stack);
+- protected/invalid/unsupported → "Try another link"/"Paste again" = `goHome`;
+- storage → secondary "Manage storage" = `openSettings`;
+- exists → "Open in gallery" = gallery SnackBar placeholder;
+- permissionDeniedPermanently → "Open settings" = system-settings SnackBar
+  placeholder.
+
+### History & Settings
+- **History**: `QTopBar` + (empty state | storage summary + day-grouped `QCard`
+  rows from `AppState.historyGroups`). Row `moreVertical` → actions sheet that
+  pops an id; the caller does Open/Share (SnackBar placeholders) or Remove
+  (`removeHistoryEntry`). Search is a placeholder. Storage MB is fabricated.
+- **Settings**: calm grouped sections (`_SettingsGroup`/`_SettingsRow`, ≥48dp,
+  Semantics): Downloads (default quality → quality sheet; ask-every-time;
+  Wi-Fi-only), Permissions (status from `permissionStatus`; "Open system
+  settings" placeholder when not granted; notifications), Storage (save location
+  placeholder; Clear history → `clearHistory`), Appearance (Theme placeholder),
+  About & legal (placeholders) + the verbatim rights statement + version.
+
+### Offline banner
+Slim warn-tone Home banner shown when `AppState.offline` (state-driven;
+`liveRegion` semantics). Real connectivity detection is Pass 5.
+
+### Placeholder convention
+Not-yet-real actions (gallery, system settings, legal, search, theme) surface
+honest SnackBars (the pass-3 "Open in gallery" pattern) rather than dead taps.
+
+---
+
 ## Layering
 
 ```

@@ -31,7 +31,21 @@ enum AppScreen {
 enum AppSheet { quality, permission }
 
 /// Edge/error variants — keys of ERROR_CONFIG (see lib/state/error_config.dart).
-enum AppErrorKind { protected, invalid, network, unsupported, storage, exists }
+enum AppErrorKind {
+  protected,
+  invalid,
+  network,
+  unsupported,
+  storage,
+  exists,
+  permissionDeniedPermanently,
+  queueItemFailed,
+}
+
+/// Gallery/storage permission status. Mirrors the three states a real OS
+/// permission can resolve to (see Pass 5 `permission_handler` mapping):
+///   granted · denied (can re-ask) · permanentlyDenied (must open settings).
+enum PermissionStatus { granted, denied, permanentlyDenied }
 
 /// Media kind for tiles/history/queue (`kind` in the prototype seed data).
 enum MediaKind { video, image, carousel }

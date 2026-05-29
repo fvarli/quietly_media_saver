@@ -40,7 +40,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
-    final history = ref.watch(appStateProvider).history;
+    final state = ref.watch(appStateProvider);
+    final history = state.history;
 
     return Scaffold(
       body: SafeArea(
@@ -48,6 +49,7 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _HomeHeader(flow: flow),
+            if (state.offline) const _OfflineBanner(),
             // Hero + clipboard card occupy the flexible middle. Scroll-centered
             // so it stays centered on tall phones but never overflows on short
             // screens / large text scales.
@@ -157,6 +159,45 @@ class _HomeHeader extends StatelessWidget {
             onTap: flow.openSettings,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Slim offline banner shown above the hero when AppState.offline is true.
+// State-driven; real connectivity detection arrives in Pass 5.
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        margin: EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          0,
+          AppSpacing.xl,
+          AppSpacing.sm,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.warnSoft,
+          borderRadius: AppRadius.brMd,
+        ),
+        child: Row(
+          children: [
+            const Icon(QIcons.wifiOff, size: 16, color: AppColors.warn),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'You’re offline — saved media still works.',
+                style: AppTypography.caption.copyWith(color: AppColors.warn),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
