@@ -1,12 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 // Quietly — HistoryEntry model
 //
-// Mirrors SEED_HISTORY in docs/design-handoff/app/app.jsx. A saved-media record
-// shown in the day-grouped History screen and the Home "recent saves" strip.
-//
-// NOTE: The persistence/storage model (app DB vs reading the OS gallery) is an
-// open product decision (HANDOFF §F #5) and is NOT decided in this pass — this
-// is an in-memory display model only.
+// A saved-media record shown in the day-grouped History screen and the Home
+// "recent saves" strip. As of Pass 5D it is persisted via SavedMediaRepository,
+// so it carries a stable [id] (identity that survives a reload — used for
+// remove) and serializes to/from JSON. [filePath] is a placeholder for a future
+// local/gallery file reference (null until the real GalleryService lands).
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/foundation.dart';
@@ -19,12 +18,17 @@ enum HistoryGroup { today, yesterday, earlier }
 @immutable
 class HistoryEntry {
   const HistoryEntry({
+    required this.id,
     required this.kind,
     required this.title,
     required this.meta,
     required this.time,
     required this.group,
+    this.filePath,
   });
+
+  /// Stable identity (persistence + remove-by-id).
+  final String id;
 
   final MediaKind kind;
 
@@ -38,11 +42,49 @@ class HistoryEntry {
   final String time;
 
   final HistoryGroup group;
+
+  /// Placeholder for a future local/gallery file reference (null this pass).
+  final String? filePath;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'kind': kind.name,
+    'title': title,
+    'meta': meta,
+    'time': time,
+    'group': group.name,
+    'filePath': filePath,
+  };
+
+  static HistoryEntry fromJson(Map<String, dynamic> json) => HistoryEntry(
+    id: json['id'] as String,
+    kind: MediaKind.values.byName(json['kind'] as String),
+    title: json['title'] as String,
+    meta: json['meta'] as String,
+    time: json['time'] as String,
+    group: HistoryGroup.values.byName(json['group'] as String),
+    filePath: json['filePath'] as String?,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is HistoryEntry &&
+      other.id == id &&
+      other.kind == kind &&
+      other.title == title &&
+      other.meta == meta &&
+      other.time == time &&
+      other.group == group &&
+      other.filePath == filePath;
+
+  @override
+  int get hashCode => Object.hash(id, kind, title, meta, time, group, filePath);
 }
 
 /// Seed history (HANDOFF screen 9), matching the prototype's SEED_HISTORY.
 const List<HistoryEntry> kSeedHistory = <HistoryEntry>[
   HistoryEntry(
+    id: 'seed_0',
     kind: MediaKind.video,
     title: 'Video clip',
     meta: '1080p · 24 MB',
@@ -50,6 +92,7 @@ const List<HistoryEntry> kSeedHistory = <HistoryEntry>[
     group: HistoryGroup.today,
   ),
   HistoryEntry(
+    id: 'seed_1',
     kind: MediaKind.image,
     title: '3 images',
     meta: 'JPG · 4.1 MB',
@@ -57,6 +100,7 @@ const List<HistoryEntry> kSeedHistory = <HistoryEntry>[
     group: HistoryGroup.today,
   ),
   HistoryEntry(
+    id: 'seed_2',
     kind: MediaKind.image,
     title: 'Image',
     meta: 'PNG · 0.9 MB',
@@ -64,6 +108,7 @@ const List<HistoryEntry> kSeedHistory = <HistoryEntry>[
     group: HistoryGroup.yesterday,
   ),
   HistoryEntry(
+    id: 'seed_3',
     kind: MediaKind.video,
     title: 'Video clip',
     meta: '720p · 12 MB',
@@ -71,6 +116,7 @@ const List<HistoryEntry> kSeedHistory = <HistoryEntry>[
     group: HistoryGroup.yesterday,
   ),
   HistoryEntry(
+    id: 'seed_4',
     kind: MediaKind.image,
     title: 'Image',
     meta: 'JPG · 1.4 MB',
@@ -78,6 +124,7 @@ const List<HistoryEntry> kSeedHistory = <HistoryEntry>[
     group: HistoryGroup.earlier,
   ),
   HistoryEntry(
+    id: 'seed_5',
     kind: MediaKind.video,
     title: 'Video clip',
     meta: '1080p · 30 MB',

@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/connectivity/connectivity_service_provider.dart';
 import '../../services/permissions/permission_service_provider.dart';
 import '../../services/preferences/preferences_service_provider.dart';
+import '../../services/saved_media/saved_media_repository_provider.dart';
 import '../../state/app_state.dart';
 import '../../state/app_state_provider.dart';
 
@@ -34,6 +35,7 @@ class AppBootstrap {
   /// Run startup wiring. Safe to call once after the app mounts.
   Future<void> start() async {
     await _loadPreferences();
+    await _loadHistory();
     await _initConnectivity();
     await _refreshPermission();
   }
@@ -48,6 +50,15 @@ class AppBootstrap {
         ..setNotify(prefs.notify);
     } catch (_) {
       // Storage unavailable — keep defaults.
+    }
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final history = await _ref.read(savedMediaRepositoryProvider).load();
+      if (history != null) _notifier.setHistory(history);
+    } catch (_) {
+      // Storage unavailable — keep the seed/default history.
     }
   }
 
@@ -89,12 +100,22 @@ final bootstrapProvider = Provider<AppBootstrap>((ref) {
   final bootstrap = AppBootstrap(ref);
 
   ref.listen<AppState>(appStateProvider, (prev, next) {
+    // Preferences write-through.
     if (prev?.toPreferences != next.toPreferences) {
       // Fire-and-forget; failures must not break the UI.
       unawaited(
         ref
             .read(preferencesServiceProvider)
             .save(next.toPreferences)
+            .catchError((_) {}),
+      );
+    }
+    // History write-through (the list reference changes only on a real change).
+    if (!identical(prev?.history, next.history)) {
+      unawaited(
+        ref
+            .read(savedMediaRepositoryProvider)
+            .save(next.history)
             .catchError((_) {}),
       );
     }

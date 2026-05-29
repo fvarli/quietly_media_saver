@@ -110,12 +110,17 @@ class AppStateNotifier extends Notifier<AppState> {
   /// Toggle the offline banner state (real connectivity detection in Pass 5).
   void setOffline(bool value) => state = state.copyWith(offline: value);
 
-  /// Clear all saved history (Settings → Clear history). In-memory only.
+  /// Replace the history list (bootstrap applies persisted history).
+  void setHistory(List<HistoryEntry> history) =>
+      state = state.copyWith(history: history);
+
+  /// Clear all saved history (Settings → Clear history). Persisted by the
+  /// bootstrap write-through listener.
   void clearHistory() => state = state.copyWith(history: const []);
 
-  /// Remove a single history entry by identity (History row action).
+  /// Remove a single history entry by [id] (stable across persistence reloads).
   void removeHistoryEntry(HistoryEntry entry) => state = state.copyWith(
-    history: state.history.where((h) => !identical(h, entry)).toList(),
+    history: state.history.where((h) => h.id != entry.id).toList(),
   );
 
   /// Prepare the download (mirrors `app.startDownload`) — builds the queue for
@@ -156,8 +161,10 @@ class AppStateNotifier extends Notifier<AppState> {
   /// exposed now so the flow/tests can exercise the transition.
   void finishDownload() {
     final kinds = state.lastSaved;
+    final id = 'save_${DateTime.now().microsecondsSinceEpoch}';
     final HistoryEntry entry = kinds.length > 1
         ? HistoryEntry(
+            id: id,
             kind: kinds.contains(MediaKind.video)
                 ? MediaKind.video
                 : MediaKind.image,
@@ -167,6 +174,7 @@ class AppStateNotifier extends Notifier<AppState> {
             group: HistoryGroup.today,
           )
         : HistoryEntry(
+            id: id,
             kind: kinds.isNotEmpty ? kinds.first : MediaKind.video,
             title: kinds.firstOrNull == MediaKind.image
                 ? 'Image'

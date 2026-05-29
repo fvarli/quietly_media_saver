@@ -24,6 +24,7 @@ import '../../core/widgets/q_button.dart';
 import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_section_label.dart';
+import '../../services/gallery/gallery_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/history_entry.dart';
@@ -91,10 +92,14 @@ class HistoryScreen extends ConsumerWidget {
       builder: (_) => const _RowActionsSheet(),
     );
     if (action == null) return;
+    final gallery = ref.read(galleryServiceProvider);
     switch (action) {
       case 'remove':
+        // Remove the gallery file (placeholder) + the persisted history entry.
+        gallery.remove(entry);
         ref.read(appStateProvider.notifier).removeHistoryEntry(entry);
       case 'open':
+        gallery.open(entry);
         if (context.mounted) {
           _snack(
             context,
@@ -102,6 +107,7 @@ class HistoryScreen extends ConsumerWidget {
           );
         }
       case 'share':
+        gallery.share(entry);
         if (context.mounted) _snack(context, 'Sharing is coming soon.');
     }
   }

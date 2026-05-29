@@ -1,12 +1,13 @@
-// Quietly — widget + state + token tests (passes 1–5C).
+// Quietly — widget + state + token tests (passes 1–5D).
 //
 // Covers the foundation, pass-2/3/4 UI, pass-5A permissions, pass-5B bootstrap
-// (connectivity/preferences), and pass-5C downloads (queue service lifecycle +
-// the Download screen consuming service progress, completion/failure/cancel).
-// All platform layers are faked (permission/connectivity/preferences/downloads)
-// — no real channels; the timer-driven in-memory queue is tested in-body and
-// disposed before the test ends. Animated screens use explicit pump(Duration),
-// not pumpAndSettle; long lazy lists use scrollUntilVisible.
+// (connectivity/preferences), pass-5C downloads (queue service + screen), and
+// pass-5D persistence (history load/save/remove/clear) + gallery actions. All
+// platform layers are faked (permission/connectivity/preferences/downloads/
+// saved-media/gallery) — no real channels; the timer-driven in-memory queue is
+// tested in-body and disposed before the test ends. Animated screens use
+// explicit pump(Duration), not pumpAndSettle; long lazy lists use
+// scrollUntilVisible.
 
 import 'dart:async';
 
@@ -18,6 +19,7 @@ import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:quietly_media_saver/app/quietly_app.dart';
 import 'package:quietly_media_saver/app/router/app_router.dart';
 import 'package:quietly_media_saver/app/router/app_routes.dart';
+import 'package:quietly_media_saver/core/icons/q_icons.dart';
 import 'package:quietly_media_saver/core/theme/tokens/app_colors.dart';
 import 'package:quietly_media_saver/core/widgets/q_bar.dart';
 import 'package:quietly_media_saver/core/widgets/q_button.dart';
@@ -37,16 +39,21 @@ import 'package:quietly_media_saver/services/downloads/download_models.dart';
 import 'package:quietly_media_saver/services/downloads/download_queue_provider.dart';
 import 'package:quietly_media_saver/services/downloads/download_queue_service.dart';
 import 'package:quietly_media_saver/services/downloads/in_memory_download_queue_service.dart';
+import 'package:quietly_media_saver/services/gallery/gallery_service.dart';
+import 'package:quietly_media_saver/services/gallery/gallery_service_provider.dart';
 import 'package:quietly_media_saver/services/permissions/permission_result_mapper.dart';
 import 'package:quietly_media_saver/services/permissions/permission_service.dart';
 import 'package:quietly_media_saver/services/permissions/permission_service_provider.dart';
 import 'package:quietly_media_saver/services/preferences/preferences_service.dart';
 import 'package:quietly_media_saver/services/preferences/preferences_service_provider.dart';
+import 'package:quietly_media_saver/services/saved_media/saved_media_repository.dart';
+import 'package:quietly_media_saver/services/saved_media/saved_media_repository_provider.dart';
 import 'package:quietly_media_saver/state/app_state.dart';
 import 'package:quietly_media_saver/state/app_state_provider.dart';
 import 'package:quietly_media_saver/state/error_config.dart';
 import 'package:quietly_media_saver/state/models/app_enums.dart';
 import 'package:quietly_media_saver/state/models/app_preferences.dart';
+import 'package:quietly_media_saver/state/models/history_entry.dart';
 
 /// In-memory PermissionService for tests — no platform channels.
 class FakePermissionService implements PermissionService {
@@ -179,6 +186,50 @@ class FakeDownloadQueueService implements DownloadQueueService {
   void _set(DownloadQueueState s) {
     _state = s;
     if (!_controller.isClosed) _controller.add(s);
+  }
+}
+
+/// In-memory SavedMediaRepository for tests — no platform channels.
+class FakeSavedMediaRepository implements SavedMediaRepository {
+  FakeSavedMediaRepository([this.stored]);
+
+  List<HistoryEntry>? stored;
+  List<HistoryEntry>? saved;
+
+  @override
+  Future<List<HistoryEntry>?> load() async => stored;
+
+  @override
+  Future<void> save(List<HistoryEntry> entries) async {
+    saved = entries;
+    stored = entries;
+  }
+}
+
+/// Records GalleryService calls for tests — no platform channels.
+class FakeGalleryService implements GalleryService {
+  int openCalls = 0;
+  int shareCalls = 0;
+  int removeCalls = 0;
+  int saveCalls = 0;
+  HistoryEntry? lastRemoved;
+
+  @override
+  Future<void> open(HistoryEntry entry) async => openCalls++;
+
+  @override
+  Future<void> share(HistoryEntry entry) async => shareCalls++;
+
+  @override
+  Future<void> remove(HistoryEntry entry) async {
+    removeCalls++;
+    lastRemoved = entry;
+  }
+
+  @override
+  Future<bool> save(HistoryEntry entry) async {
+    saveCalls++;
+    return false;
   }
 }
 
@@ -613,6 +664,9 @@ void main() {
     }) async {
       final container = ProviderContainer(
         overrides: [
+          savedMediaRepositoryProvider.overrideWithValue(
+            FakeSavedMediaRepository(),
+          ),
           if (permissionService != null)
             permissionServiceProvider.overrideWithValue(permissionService),
         ],
@@ -734,6 +788,9 @@ void main() {
         overrides: [
           permissionServiceProvider.overrideWithValue(permission),
           downloadQueueServiceProvider.overrideWithValue(download),
+          savedMediaRepositoryProvider.overrideWithValue(
+            FakeSavedMediaRepository(),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -881,6 +938,7 @@ void main() {
       required FakeConnectivityService connectivity,
       required FakePreferencesService preferences,
       FakePermissionService? permission,
+      FakeSavedMediaRepository? savedMedia,
     }) async {
       final container = ProviderContainer(
         overrides: [
@@ -888,6 +946,9 @@ void main() {
           preferencesServiceProvider.overrideWithValue(preferences),
           permissionServiceProvider.overrideWithValue(
             permission ?? FakePermissionService(),
+          ),
+          savedMediaRepositoryProvider.overrideWithValue(
+            savedMedia ?? FakeSavedMediaRepository(),
           ),
         ],
       );
@@ -950,6 +1011,160 @@ void main() {
       container.read(appStateProvider.notifier).setWifiOnly(false);
       await tester.pump();
       expect(prefs.saved?.wifiOnly, isFalse);
+    });
+  });
+
+  group('History persistence', () {
+    Future<({ProviderContainer container, FakeSavedMediaRepository repo})>
+    pumpApp(WidgetTester tester, {List<HistoryEntry>? stored}) async {
+      final repo = FakeSavedMediaRepository(stored);
+      final connectivity = FakeConnectivityService(online: true);
+      addTearDown(connectivity.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          savedMediaRepositoryProvider.overrideWithValue(repo),
+          connectivityServiceProvider.overrideWithValue(connectivity),
+          preferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(),
+          ),
+          permissionServiceProvider.overrideWithValue(FakePermissionService()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const QuietlyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return (container: container, repo: repo);
+    }
+
+    testWidgets('persisted history loads on startup', (tester) async {
+      _usePhoneViewport(tester);
+      const stored = [
+        HistoryEntry(
+          id: 'p0',
+          kind: MediaKind.video,
+          title: 'Persisted clip',
+          meta: '1080p · 10 MB',
+          time: 'Just now',
+          group: HistoryGroup.today,
+        ),
+        HistoryEntry(
+          id: 'p1',
+          kind: MediaKind.image,
+          title: 'Persisted image',
+          meta: 'JPG · 1 MB',
+          time: 'Just now',
+          group: HistoryGroup.today,
+        ),
+      ];
+      final r = await pumpApp(tester, stored: stored);
+      expect(r.container.read(appStateProvider).history, stored);
+    });
+
+    testWidgets('success save persists history', (tester) async {
+      _usePhoneViewport(tester);
+      final r = await pumpApp(tester); // null stored → seed kept
+      final before = r.container.read(appStateProvider).history.length;
+
+      r.container.read(appStateProvider.notifier).finishDownload();
+      await tester.pump();
+
+      expect(r.repo.saved, isNotNull);
+      expect(r.repo.saved!.length, before + 1);
+    });
+
+    testWidgets('remove entry persists', (tester) async {
+      _usePhoneViewport(tester);
+      final r = await pumpApp(tester);
+
+      r.container
+          .read(appStateProvider.notifier)
+          .removeHistoryEntry(kSeedHistory.first);
+      await tester.pump();
+
+      expect(r.repo.saved!.any((e) => e.id == kSeedHistory.first.id), isFalse);
+    });
+
+    testWidgets('clear persists an empty list', (tester) async {
+      _usePhoneViewport(tester);
+      final r = await pumpApp(tester);
+
+      r.container.read(appStateProvider.notifier).clearHistory();
+      await tester.pump();
+
+      expect(r.repo.saved, isEmpty);
+    });
+
+    testWidgets('persisted empty history shows the empty state', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final r = await pumpApp(tester, stored: const []);
+      r.container.read(routerProvider).goNamed(AppRoutes.history);
+      await tester.pumpAndSettle();
+      expect(find.text('No saves yet'), findsOneWidget);
+    });
+  });
+
+  group('History gallery actions', () {
+    Future<FakeGalleryService> openRowActions(WidgetTester tester) async {
+      final gallery = FakeGalleryService();
+      final container = ProviderContainer(
+        overrides: [galleryServiceProvider.overrideWithValue(gallery)],
+      );
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const HistoryScreen());
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithIcon(IconButton, QIcons.moreVertical).first,
+      );
+      await tester.pumpAndSettle();
+      return gallery;
+    }
+
+    testWidgets('Open calls the gallery service', (tester) async {
+      _usePhoneViewport(tester);
+      final gallery = await openRowActions(tester);
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(gallery.openCalls, 1);
+    });
+
+    testWidgets('Share calls the gallery service', (tester) async {
+      _usePhoneViewport(tester);
+      final gallery = await openRowActions(tester);
+      await tester.tap(find.text('Share'));
+      await tester.pumpAndSettle();
+      expect(gallery.shareCalls, 1);
+    });
+
+    testWidgets('Remove calls the gallery service and drops the row', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final gallery = await openRowActions(tester);
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(gallery.removeCalls, 1);
+    });
+  });
+
+  group('HistoryEntry JSON', () {
+    test('round-trips through toJson/fromJson', () {
+      const entry = HistoryEntry(
+        id: 'x',
+        kind: MediaKind.video,
+        title: 'Title',
+        meta: 'Meta',
+        time: 'Just now',
+        group: HistoryGroup.yesterday,
+        filePath: '/tmp/x.mp4',
+      );
+      expect(HistoryEntry.fromJson(entry.toJson()), entry);
     });
   });
 

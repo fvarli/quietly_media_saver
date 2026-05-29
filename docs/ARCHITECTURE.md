@@ -303,6 +303,43 @@ A timer-free `FakeDownloadQueueService` drives screen/flow tests deterministical
 
 ---
 
+## Pass 5D — History persistence + gallery boundary
+
+Makes the saved-media history **persist** and adds a **gallery** boundary for
+file operations. Still no real file I/O / downloader.
+
+### Persistence (snapshot, write-through — like 5B prefs)
+- `lib/services/saved_media/` — `SavedMediaRepository` (`load()` returns the
+  list or `null`; `save(list)`) + `SharedPreferencesSavedMediaRepository`
+  (one JSON string key) + `savedMediaRepositoryProvider`.
+- `HistoryEntry` gains a stable `id` (identity that survives a reload, used for
+  remove) + a placeholder `filePath` (null) + `toJson`/`fromJson`. Seed entries
+  get ids.
+- Bootstrap: `start()` loads history (guarded; applied only when non-null, so
+  first run keeps the seed); `bootstrapProvider` adds a second `ref.listen`
+  that write-through saves whenever the `history` list reference changes
+  (success-save, remove, clear all persist). After clear, an **empty** list is
+  persisted → empty state survives relaunch.
+- Notifier (still pure): `setHistory` (bootstrap applies loaded), `finishDownload`
+  stamps a unique `id`, `removeHistoryEntry` removes **by id**.
+
+### Gallery boundary
+- `lib/services/gallery/` — `GalleryService` (`open/share/remove(entry)`,
+  `save(entry)`-future) + `PlaceholderGalleryService` (no-ops; `save`→false) +
+  `galleryServiceProvider`. History row actions route through it: open/share →
+  service + SnackBar; remove → `gallery.remove` + `removeHistoryEntry`.
+
+### Decisions / test-safety
+- Snapshot (whole-list) persistence keeps it simple + consistent; granular
+  persistence is later. **Permission status still not persisted.**
+- Bootstrap load/save are guarded; in tests the saved-media repo is faked in the
+  QuietlyApp pump helpers (a real `SharedPreferences.getInstance()` never
+  completes under test, which would stall `start()` — the fake avoids that).
+- Fakes: `FakeSavedMediaRepository` (stored/saved), `FakeGalleryService`
+  (records open/share/remove). JSON round-trip unit-tested.
+
+---
+
 ## Layering
 
 ```

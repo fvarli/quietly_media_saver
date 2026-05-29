@@ -12,6 +12,17 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 5D — History persistence + gallery boundary
+
+Saved-media **history now persists**: a `SavedMediaRepository`
+(`lib/services/saved_media/`, shared_preferences JSON) loads history at startup
+and a write-through `ref.listen` saves on every change — so saves, removes, and
+clear survive a relaunch (`HistoryEntry` gained a stable `id` + `filePath`
+placeholder + JSON). A new `GalleryService` boundary (`lib/services/gallery/`,
+placeholder no-ops for now) backs the History open/share/remove row actions.
+Still **no real file writes, gallery I/O, or downloader**; tests fake the
+repository + gallery. See `docs/ARCHITECTURE.md` → "Pass 5D".
+
 ## Build pass 5C — Download/queue service boundary
 
 Replaces the download screen's local `AnimationController` with a real
