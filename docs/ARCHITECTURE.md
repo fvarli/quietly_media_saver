@@ -340,6 +340,55 @@ file operations. Still no real file I/O / downloader.
 
 ---
 
+## Pass 6 — URL analysis + real clipboard
+
+The core flow is now **data-driven**: a pasted link is analyzed and the result
+(not seed data) drives Result/Carousel; the clipboard is read for real.
+
+### Models — `lib/state/models/analysis_result.dart`
+`AnalysisResultType{single,carousel}`, `DetectedMediaItem`, `AnalysisResult`
+(host/isPublic/items/qualityOptions), `AnalysisFailureKind` +
+`AnalysisException`, and `toAppErrorKind(...)`. In the state layer so `AppState`
+holds `analysis` (+ `lastSubmittedUrl`, `clipboardUrl`).
+
+### Services
+- `lib/services/analysis/` — `MediaAnalysisService` + deterministic
+  `SampleMediaAnalysisService` (routes by illustrative URL substring; **no
+  scraping, no private/DRM access, no platform-specific claims**) + pure
+  `isLikelyUrl`. **It is also the test double** (deterministic) — flow tests use
+  it directly.
+- `lib/services/clipboard/` — `ClipboardService` + `FlutterClipboardService`
+  (`Clipboard.getData`); no special permission.
+
+### Orchestration (AppFlow; notifier stays pure)
+- `submitUrl(url)` → record + Analyzing; `pasteFromClipboard()` → read clipboard,
+  empty → calm SnackBar, else submit.
+- `runAnalysis()` (called from `AnalyzingScreen.initState`): a **calm minimum**
+  `kMinAnalyzeDuration` (900ms) then — offline → `network` error; else
+  `analyze()` → `setAnalysis` → single ⇒ Result, carousel ⇒ Carousel; on
+  `AnalysisException` → `showError(toAppErrorKind(kind))`. `openCarousel`/
+  `showResult` use `pushReplacement` (replace Analyzing).
+- The Analyzing animation is now **visual only**; navigation comes from the
+  service result.
+- `setAnalysis` (pure) also repopulates the selectable `carousel` from detected
+  items for the carousel case.
+
+### Screens
+- **Home** (`ConsumerStatefulWidget`): `initState` reads the clipboard
+  (guarded); the clipboard card shows only when a URL is detected and submits it;
+  "Paste link" → `pasteFromClipboard`.
+- **Result**: renders the analyzed host / kind / duration / count (with static
+  fallbacks when visited without a result); Save uses detected kinds.
+- **Carousel**: already reads `state.carousel` (now analysis-populated).
+
+### Error mapping & rights-safety
+invalidUrl→invalid, protected→protected, unsupported→unsupported,
+network→network — reusing the pass-4 config-driven ErrorScreen + copy. Quietly
+never claims to access private/login/DRM media; such links surface a calm
+refusal.
+
+---
+
 ## Layering
 
 ```

@@ -18,6 +18,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import 'models/analysis_result.dart';
 import 'models/app_enums.dart';
 import 'models/app_preferences.dart';
 import 'models/app_toggles.dart';
@@ -42,6 +43,9 @@ class AppState {
     this.toggles = const AppToggles(),
     this.lastSaved = const <MediaKind>[MediaKind.video],
     this.pendingSave = const <MediaKind>[],
+    this.analysis,
+    this.lastSubmittedUrl,
+    this.clipboardUrl,
   });
 
   /// Current logical screen (state-machine). Navigation is reflected by
@@ -84,6 +88,15 @@ class AppState {
 
   /// Kinds awaiting a permission grant before download can start.
   final List<MediaKind> pendingSave;
+
+  /// The most recent successful analysis result (drives Result/Carousel).
+  final AnalysisResult? analysis;
+
+  /// The URL last submitted for analysis (shown on Analyzing; used by retry).
+  final String? lastSubmittedUrl;
+
+  /// A valid-looking URL detected on the clipboard (drives the Home suggestion).
+  final String? clipboardUrl;
 
   // ── Derived getters ───────────────────────────────────────
   /// Resolved quality option for [quality].
@@ -148,6 +161,9 @@ class AppState {
     AppToggles? toggles,
     List<MediaKind>? lastSaved,
     List<MediaKind>? pendingSave,
+    AnalysisResult? analysis,
+    String? lastSubmittedUrl,
+    String? clipboardUrl,
   }) {
     return AppState(
       screen: screen ?? this.screen,
@@ -163,6 +179,9 @@ class AppState {
       toggles: toggles ?? this.toggles,
       lastSaved: lastSaved ?? this.lastSaved,
       pendingSave: pendingSave ?? this.pendingSave,
+      analysis: analysis ?? this.analysis,
+      lastSubmittedUrl: lastSubmittedUrl ?? this.lastSubmittedUrl,
+      clipboardUrl: clipboardUrl ?? this.clipboardUrl,
     );
   }
 }

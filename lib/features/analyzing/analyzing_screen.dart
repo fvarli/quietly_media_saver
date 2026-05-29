@@ -5,10 +5,10 @@
 // checklist ("Reaching the page" → "Checking it's public" → "Listing available
 // media"), and the link under inspection with a "Public" chip.
 //
-// SIMULATED (no real URL analysis this pass): a single finite AnimationController
-// drives both the ring and the step completion, and on completion auto-advances
-// to Result via AppFlow. Using one controller (rather than several Timers) keeps
-// it deterministic and testable with explicit `pump(Duration)` — never
+// The calm explainable UI (ring + stepped checklist + QDots) is VISUAL ONLY,
+// driven by a finite controller. The navigation outcome comes from
+// AppFlow.runAnalysis(), which calls the MediaAnalysisService and routes to
+// Result / Carousel / Error. Tests use explicit `pump(Duration)` — never
 // `pumpAndSettle`, since QDots animates forever. Back cancels to Home.
 // ─────────────────────────────────────────────────────────────
 
@@ -24,9 +24,10 @@ import '../../core/widgets/q_dots.dart';
 import '../../core/widgets/q_ring.dart';
 import '../../core/widgets/q_top_bar.dart';
 import '../../core/widgets/url_chip.dart';
+import '../../state/app_state_provider.dart';
 
-/// Total simulated-analysis duration before auto-advancing to Result.
-const Duration kAnalyzeDuration = Duration(milliseconds: 2700);
+/// Visual duration of the analyzing animation (mirrors the calm minimum).
+const Duration kAnalyzeVisualDuration = kMinAnalyzeDuration;
 
 const List<String> _kSteps = [
   'Reaching the page',
@@ -50,29 +51,20 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: kAnalyzeDuration,
+    duration: kAnalyzeVisualDuration,
   );
 
   @override
   void initState() {
     super.initState();
-    _controller
-      ..addStatusListener(_onStatus)
-      ..forward();
-  }
-
-  void _onStatus(AnimationStatus status) {
-    if (status == AnimationStatus.completed && mounted) {
-      // Auto-advance to Result (replaces this screen in the back-stack).
-      AppFlow(context, ref).showResult();
-    }
+    _controller.forward(); // visual only
+    // Drive the real outcome from the analysis service.
+    AppFlow(context, ref).runAnalysis();
   }
 
   @override
   void dispose() {
-    _controller
-      ..removeStatusListener(_onStatus)
-      ..dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -86,6 +78,7 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final url = ref.watch(appStateProvider).lastSubmittedUrl ?? _kExampleUrl;
     return Scaffold(
       appBar: QTopBar(onBack: () => AppFlow(context, ref).goHome()),
       body: SafeArea(
@@ -169,7 +162,7 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen>
                 AppSpacing.xxl - 2,
                 AppSpacing.lg,
               ),
-              child: const UrlChip(url: _kExampleUrl),
+              child: UrlChip(url: url),
             ),
           ],
         ),

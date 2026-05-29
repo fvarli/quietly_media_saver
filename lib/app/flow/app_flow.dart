@@ -17,16 +17,23 @@
 // these instead of touching the router or notifier directly.
 // ─────────────────────────────────────────────────────────────
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../services/analysis/media_analysis_provider.dart';
+import '../../services/clipboard/clipboard_service_provider.dart';
 import '../../services/downloads/download_queue_provider.dart';
 import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
+import '../../state/models/analysis_result.dart';
 import '../../state/models/app_enums.dart';
 import '../router/app_routes.dart';
 import '../router/sheets.dart';
+
+/// Calm minimum duration the Analyzing screen shows before routing on the
+/// service result (the outcome comes from the service, not this timer).
+const Duration kMinAnalyzeDuration = Duration(milliseconds: 900);
 
 /// Coordinates one screen's navigation + state transitions.
 class AppFlow {
@@ -55,22 +62,66 @@ class AppFlow {
   }
 
   // ── Core wizard flow ──────────────────────────────────────
-  /// Paste a link → analyzing (HANDOFF happy path).
-  void paste() {
-    _notifier.paste();
+  /// Read the clipboard and analyze a copied link. Empty clipboard → a calm
+  /// prompt (no error screen); any non-empty text is submitted (a non-URL
+  /// surfaces the `invalid` error via analysis).
+  Future<void> pasteFromClipboard() async {
+    final text = await ref.read(clipboardServiceProvider).readText();
+    if (!context.mounted) return;
+    final trimmed = text?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Copy a public link, then tap Paste.')),
+      );
+      return;
+    }
+    submitUrl(trimmed);
+  }
+
+  /// Submit [url] for analysis → Analyzing screen (which runs [runAnalysis]).
+  void submitUrl(String url) {
+    _notifier
+      ..setSubmittedUrl(url)
+      ..paste();
     context.pushNamed(AppRoutes.analyzing);
   }
 
-  /// Analysis finished → result (replaces analyzing so Back skips it).
+  /// Run the (sample) analysis with a calm minimum duration, then route on the
+  /// service result: single → Result, carousel → Carousel; typed failures →
+  /// the matching error screen. Offline short-circuits to the network error.
+  Future<void> runAnalysis() async {
+    final url = ref.read(appStateProvider).lastSubmittedUrl ?? '';
+    await Future<void>.delayed(kMinAnalyzeDuration);
+    if (!context.mounted) return;
+    if (ref.read(appStateProvider).offline) {
+      showError(AppErrorKind.network);
+      return;
+    }
+    try {
+      final result = await ref.read(mediaAnalysisServiceProvider).analyze(url);
+      if (!context.mounted) return;
+      _notifier.setAnalysis(result);
+      if (result.isCarousel) {
+        openCarousel();
+      } else {
+        showResult();
+      }
+    } on AnalysisException catch (e) {
+      if (!context.mounted) return;
+      showError(toAppErrorKind(e.kind));
+    }
+  }
+
+  /// Analysis finished (single) → result (replaces analyzing so Back skips it).
   void showResult() {
     _notifier.onAnalyzed();
     context.pushReplacementNamed(AppRoutes.result);
   }
 
-  /// Open the multi-select carousel screen.
+  /// Analysis finished (multi) → carousel (replaces analyzing).
   void openCarousel() {
     _notifier.setScreen(AppScreen.carousel);
-    context.pushNamed(AppRoutes.carousel);
+    context.pushReplacementNamed(AppRoutes.carousel);
   }
 
   /// Show an error/edge state (replaces the current transient screen).

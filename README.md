@@ -12,6 +12,19 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 6 — URL analysis + real clipboard
+
+The core flow is now **data-driven**. A `MediaAnalysisService`
+(`lib/services/analysis/`) inspects a pasted link and returns the public media
+it exposes; the result drives Result (single) or Carousel (multi), and typed
+failures map to the existing error screens (invalid / protected / unsupported /
+network). A `ClipboardService` (`lib/services/clipboard/`) reads the real
+clipboard — Home suggests a detected link and "Paste link" submits it. Analyzing
+keeps a calm ~0.9s minimum but the outcome comes from the service. The shipped
+analyzer is a **deterministic, legally-safe sample** (no scraping, no private/
+DRM access, no platform-specific claims); a real analyzer/downloader comes next.
+See `docs/ARCHITECTURE.md` → "Pass 6".
+
 ## Build pass 5D — History persistence + gallery boundary
 
 Saved-media **history now persists**: a `SavedMediaRepository`

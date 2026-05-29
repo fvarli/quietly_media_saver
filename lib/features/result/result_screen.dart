@@ -36,7 +36,24 @@ class ResultScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
-    final quality = ref.watch(appStateProvider).qualityOption;
+    final state = ref.watch(appStateProvider);
+    final quality = state.qualityOption;
+
+    // Drive from the analysis result; fall back to the static single-video
+    // sample when visited without one (route robustness).
+    final analysis = state.analysis;
+    final item = (analysis != null && analysis.items.isNotEmpty)
+        ? analysis.items.first
+        : null;
+    final kind = item?.kind ?? MediaKind.video;
+    final isVideo = kind == MediaKind.video;
+    final host = analysis?.host ?? 'example.com';
+    final count = analysis?.items.length ?? 1;
+    final durationLabel = _formatDuration(item?.durationSeconds ?? 42);
+    final title =
+        'Public post · $count ${isVideo ? 'video' : 'image'}${count == 1 ? '' : 's'}';
+    final saveKinds =
+        analysis?.items.map((m) => m.kind).toList() ?? const [MediaKind.video];
 
     return Scaffold(
       appBar: QTopBar(
@@ -64,38 +81,45 @@ class ResultScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const QMediaTile(
-                      kind: MediaKind.video,
-                      tone: QTileTone.cool,
+                    QMediaTile(
+                      kind: kind,
+                      tone: isVideo ? QTileTone.cool : QTileTone.neutral,
                       radius: AppRadius.xl,
                       aspectRatio: 4 / 3,
-                      label: 'video',
-                      badge: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(QIcons.play),
-                          SizedBox(width: 3),
-                          Text('0:42'),
-                        ],
-                      ),
-                      semanticLabel: 'Video preview, 42 seconds',
+                      label: isVideo ? 'video' : 'image',
+                      badge: isVideo
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(QIcons.play),
+                                const SizedBox(width: 3),
+                                Text(durationLabel),
+                              ],
+                            )
+                          : null,
+                      semanticLabel: isVideo
+                          ? 'Video preview'
+                          : 'Image preview',
                     ),
                     SizedBox(height: AppSpacing.lg),
                     Text(
-                      'Public post · 1 video',
+                      title,
                       style: AppTypography.headline.copyWith(fontSize: 18),
                     ),
                     SizedBox(height: AppSpacing.sm - 1),
                     Wrap(
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
-                      children: const [
+                      children: [
                         QPill(
-                          'example.com',
+                          host,
                           tone: QPillTone.neutral,
                           icon: QIcons.globe,
                         ),
-                        QPill('Landscape · MP4', tone: QPillTone.neutral),
+                        QPill(
+                          isVideo ? 'Landscape · MP4' : 'JPG',
+                          tone: QPillTone.neutral,
+                        ),
                       ],
                     ),
                     SizedBox(height: AppSpacing.md + 2),
@@ -122,7 +146,7 @@ class ResultScreen extends ConsumerWidget {
                   QButton(
                     label: 'Save to gallery',
                     icon: QIcons.download,
-                    onPressed: () => flow.requestSave(const [MediaKind.video]),
+                    onPressed: () => flow.requestSave(saveKinds),
                   ),
                   SizedBox(height: AppSpacing.md),
                   const RightsNote(RightsCopy.save),
@@ -135,6 +159,9 @@ class ResultScreen extends ConsumerWidget {
     );
   }
 }
+
+String _formatDuration(int seconds) =>
+    '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
 
 class _ExplainNote extends StatelessWidget {
   @override

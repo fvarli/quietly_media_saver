@@ -15,7 +15,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_state.dart';
+import 'models/analysis_result.dart';
 import 'models/app_enums.dart';
+import 'models/carousel_item.dart';
 import 'models/download_job.dart';
 import 'models/history_entry.dart';
 
@@ -40,6 +42,32 @@ class AppStateNotifier extends Notifier<AppState> {
 
   /// Analysis finished → show result (mirrors `app.onAnalyzed`).
   void onAnalyzed() => state = state.copyWith(screen: AppScreen.result);
+
+  /// Record the URL submitted for analysis.
+  void setSubmittedUrl(String url) =>
+      state = state.copyWith(lastSubmittedUrl: url);
+
+  /// Record a valid-looking clipboard URL (Home suggestion).
+  void setClipboardUrl(String url) => state = state.copyWith(clipboardUrl: url);
+
+  /// Apply an analysis result. For a carousel, also (re)populate the selectable
+  /// carousel list from the detected items (all selected by default).
+  void setAnalysis(AnalysisResult result) {
+    state = state.copyWith(
+      analysis: result,
+      carousel: result.isCarousel
+          ? [
+              for (final m in result.items)
+                CarouselItem(
+                  kind: m.kind,
+                  megabytes: m.sizeMb,
+                  selected: true,
+                  durationSeconds: m.durationSeconds,
+                ),
+            ]
+          : state.carousel,
+    );
+  }
 
   void openSheet(AppSheet sheet) => state = state.copyWith(sheet: sheet);
 

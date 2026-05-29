@@ -5,10 +5,10 @@
 // recent-saves strip, and the always-present rights note. Built from the shared
 // design-system components (QButton/QCard/QMediaTile/RightsNote/…).
 //
-// Pass-2 scope notes:
-//   • The clipboard card is a STATIC example (prototype URL); tapping it runs
-//     flow.paste(). Real Clipboard detection is a later input/analysis pass.
-//   • No real URL analysis — paste() simulates it on the Analyzing screen.
+// Pass-6: the clipboard card now reflects a real detected link. On open, Home
+// reads the clipboard via ClipboardService (best-effort) and, if it looks like a
+// URL, shows it as a suggestion. "Paste link" reads the clipboard and submits it
+// for real analysis; an empty clipboard shows a calm prompt.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
@@ -27,21 +27,45 @@ import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_section_label.dart';
 import '../../core/widgets/rights_note.dart';
+import '../../services/analysis/media_analysis_service.dart';
+import '../../services/clipboard/clipboard_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/history_entry.dart';
 
-/// Example URL shown in the clipboard card (static this pass).
-const String _kExampleUrl = 'share.example.com/p/8fa2c91b';
-
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _detectClipboard();
+  }
+
+  /// Best-effort: surface a copied link as a suggestion (no error on failure).
+  Future<void> _detectClipboard() async {
+    try {
+      final text = await ref.read(clipboardServiceProvider).readText();
+      final trimmed = text?.trim() ?? '';
+      if (trimmed.isNotEmpty && isLikelyUrl(trimmed) && mounted) {
+        ref.read(appStateProvider.notifier).setClipboardUrl(trimmed);
+      }
+    } catch (_) {
+      // Clipboard unavailable — just show the manual paste option.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final flow = AppFlow(context, ref);
     final state = ref.watch(appStateProvider);
     final history = state.history;
+    final clipboardUrl = state.clipboardUrl;
 
     return Scaffold(
       body: SafeArea(
@@ -85,8 +109,13 @@ class HomeScreen extends ConsumerWidget {
                               style: AppTypography.bodySub,
                             ),
                           ),
-                          SizedBox(height: AppSpacing.xxl),
-                          _ClipboardCard(onTap: flow.paste),
+                          if (clipboardUrl != null) ...[
+                            SizedBox(height: AppSpacing.xxl),
+                            _ClipboardCard(
+                              url: clipboardUrl,
+                              onTap: () => flow.submitUrl(clipboardUrl),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -107,7 +136,7 @@ class HomeScreen extends ConsumerWidget {
                   QButton(
                     label: 'Paste link',
                     icon: QIcons.paste,
-                    onPressed: flow.paste,
+                    onPressed: flow.pasteFromClipboard,
                   ),
                   SizedBox(height: AppSpacing.md),
                   const RightsNote(RightsCopy.home),
@@ -257,17 +286,18 @@ class _HeroIcon extends StatelessWidget {
   }
 }
 
-// ── Clipboard-detected card (static example) ────────────────────
+// ── Clipboard-detected card (real detected link) ────────────────
 class _ClipboardCard extends StatelessWidget {
-  const _ClipboardCard({required this.onTap});
+  const _ClipboardCard({required this.url, required this.onTap});
 
+  final String url;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return QCard(
       onTap: onTap,
-      semanticLabel: 'Use link from your clipboard: $_kExampleUrl',
+      semanticLabel: 'Use link from your clipboard: $url',
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       child: Row(
         children: [
@@ -295,7 +325,7 @@ class _ClipboardCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _kExampleUrl,
+                  url,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.mono.copyWith(color: AppColors.ink),

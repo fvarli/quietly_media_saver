@@ -1,13 +1,12 @@
-// Quietly — widget + state + token tests (passes 1–5D).
+// Quietly — widget + state + token tests (passes 1–6).
 //
-// Covers the foundation, pass-2/3/4 UI, pass-5A permissions, pass-5B bootstrap
-// (connectivity/preferences), pass-5C downloads (queue service + screen), and
-// pass-5D persistence (history load/save/remove/clear) + gallery actions. All
-// platform layers are faked (permission/connectivity/preferences/downloads/
-// saved-media/gallery) — no real channels; the timer-driven in-memory queue is
-// tested in-body and disposed before the test ends. Animated screens use
-// explicit pump(Duration), not pumpAndSettle; long lazy lists use
-// scrollUntilVisible.
+// Covers the foundation, pass-2/3/4 UI, pass-5A–D services (permission /
+// connectivity / preferences / downloads / saved-media / gallery), and pass-6
+// analysis + clipboard (sample analyzer unit tests + the clipboard→analyze→
+// route flow, including each error mapping). All platform layers are faked
+// (no real channels); the deterministic SampleMediaAnalysisService is used
+// directly. Animated/analyzing screens use explicit pump(Duration), not
+// pumpAndSettle; long lazy lists use scrollUntilVisible.
 
 import 'dart:async';
 
@@ -33,6 +32,9 @@ import 'package:quietly_media_saver/features/history/history_screen.dart';
 import 'package:quietly_media_saver/features/result/result_screen.dart';
 import 'package:quietly_media_saver/features/settings/settings_screen.dart';
 import 'package:quietly_media_saver/features/success/success_screen.dart';
+import 'package:quietly_media_saver/services/analysis/media_analysis_service.dart';
+import 'package:quietly_media_saver/services/clipboard/clipboard_service.dart';
+import 'package:quietly_media_saver/services/clipboard/clipboard_service_provider.dart';
 import 'package:quietly_media_saver/services/connectivity/connectivity_service.dart';
 import 'package:quietly_media_saver/services/connectivity/connectivity_service_provider.dart';
 import 'package:quietly_media_saver/services/downloads/download_models.dart';
@@ -51,6 +53,7 @@ import 'package:quietly_media_saver/services/saved_media/saved_media_repository_
 import 'package:quietly_media_saver/state/app_state.dart';
 import 'package:quietly_media_saver/state/app_state_provider.dart';
 import 'package:quietly_media_saver/state/error_config.dart';
+import 'package:quietly_media_saver/state/models/analysis_result.dart';
 import 'package:quietly_media_saver/state/models/app_enums.dart';
 import 'package:quietly_media_saver/state/models/app_preferences.dart';
 import 'package:quietly_media_saver/state/models/history_entry.dart';
@@ -189,6 +192,15 @@ class FakeDownloadQueueService implements DownloadQueueService {
   }
 }
 
+/// Clipboard with settable contents — no platform channels.
+class FakeClipboardService implements ClipboardService {
+  FakeClipboardService([this.text]);
+  String? text;
+
+  @override
+  Future<String?> readText() async => text;
+}
+
 /// In-memory SavedMediaRepository for tests — no platform channels.
 class FakeSavedMediaRepository implements SavedMediaRepository {
   FakeSavedMediaRepository([this.stored]);
@@ -284,8 +296,7 @@ void main() {
 
       expect(find.text('Quietly'), findsOneWidget);
       expect(find.text('Paste a link to get started.'), findsOneWidget);
-      // Clipboard card + primary CTA.
-      expect(find.text('FROM YOUR CLIPBOARD'), findsOneWidget);
+      // Primary CTA (the clipboard card only appears when a URL is detected).
       expect(find.text('Paste link'), findsOneWidget);
       // Rights-aware positioning present on Home.
       expect(
@@ -365,28 +376,177 @@ void main() {
     });
   });
 
-  group('Analyzing screen', () {
-    testWidgets('auto-advances from Home → Analyzing → Result', (tester) async {
-      _usePhoneViewport(tester);
-      await tester.pumpWidget(const ProviderScope(child: QuietlyApp()));
+  group('Sample analyzer (unit)', () {
+    const svc = SampleMediaAnalysisService();
+
+    test('single video for a plain link', () async {
+      final r = await svc.analyze('https://share.example.com/p/abc');
+      expect(r.type, AnalysisResultType.single);
+      expect(r.items, hasLength(1));
+      expect(r.host, 'share.example.com');
+    });
+    test('carousel for an album link', () async {
+      final r = await svc.analyze('https://share.example.com/album/abc');
+      expect(r.type, AnalysisResultType.carousel);
+      expect(r.items.length, greaterThan(1));
+    });
+    test('throws invalidUrl / protected / unsupported', () async {
+      expect(
+        () => svc.analyze('not a url'),
+        throwsA(
+          isA<AnalysisException>().having(
+            (e) => e.kind,
+            'kind',
+            AnalysisFailureKind.invalidUrl,
+          ),
+        ),
+      );
+      expect(
+        () => svc.analyze('https://x.example.com/private/a'),
+        throwsA(
+          isA<AnalysisException>().having(
+            (e) => e.kind,
+            'kind',
+            AnalysisFailureKind.protected,
+          ),
+        ),
+      );
+      expect(
+        () => svc.analyze('https://unsupported.example.com/a'),
+        throwsA(
+          isA<AnalysisException>().having(
+            (e) => e.kind,
+            'kind',
+            AnalysisFailureKind.unsupported,
+          ),
+        ),
+      );
+    });
+    test('isLikelyUrl + error mapping', () {
+      expect(isLikelyUrl('https://a.com/x'), isTrue);
+      expect(isLikelyUrl('share.example.com/p/1'), isTrue);
+      expect(isLikelyUrl('hello world'), isFalse);
+      expect(isLikelyUrl(''), isFalse);
+      expect(
+        toAppErrorKind(AnalysisFailureKind.protected),
+        AppErrorKind.protected,
+      );
+      expect(toAppErrorKind(AnalysisFailureKind.network), AppErrorKind.network);
+    });
+  });
+
+  group('Analysis + clipboard flow', () {
+    /// Pumps the full app with a fake clipboard (URL) + faked services. Uses the
+    /// REAL SampleMediaAnalysisService (deterministic by URL).
+    Future<ProviderContainer> pumpHome(
+      WidgetTester tester, {
+      String? clipboard,
+      bool online = true,
+    }) async {
+      final connectivity = FakeConnectivityService(online: online);
+      addTearDown(connectivity.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          clipboardServiceProvider.overrideWithValue(
+            FakeClipboardService(clipboard),
+          ),
+          connectivityServiceProvider.overrideWithValue(connectivity),
+          preferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(),
+          ),
+          savedMediaRepositoryProvider.overrideWithValue(
+            FakeSavedMediaRepository(),
+          ),
+          permissionServiceProvider.overrideWithValue(FakePermissionService()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const QuietlyApp(),
+        ),
+      );
       await tester.pumpAndSettle();
+      return container;
+    }
 
-      // Start the flow.
+    // Drives tap→outcome: clipboard read + nav to Analyzing, the calm-minimum
+    // analysis, then the result nav. Never pumpAndSettle (QDots animates).
+    Future<void> settleAnalysis(WidgetTester tester) async {
+      await tester.pump(); // clipboard read + submitUrl
+      await tester.pump(const Duration(milliseconds: 400)); // nav → Analyzing
+      await tester.pump(
+        kAnalyzeVisualDuration + const Duration(milliseconds: 300),
+      ); // analysis min delay
+      await tester.pump(); // process outcome nav
+      await tester.pump(const Duration(milliseconds: 400)); // settle transition
+    }
+
+    testWidgets('detects a clipboard URL on Home', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpHome(tester, clipboard: 'https://share.example.com/p/abc');
+      expect(find.text('FROM YOUR CLIPBOARD'), findsOneWidget);
+      expect(find.text('https://share.example.com/p/abc'), findsOneWidget);
+    });
+
+    testWidgets('paste valid URL → Analyzing → Result (analyzed data)', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      await pumpHome(tester, clipboard: 'https://demo.example.com/p/abc');
       await tester.tap(find.text('Paste link'));
-      await tester.pump(); // begin route push
-      await tester.pump(const Duration(milliseconds: 400)); // settle transition
-
-      // Analyzing is showing its explainer (QDots animates forever → no settle).
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
       expect(find.text('Reading this link'), findsOneWidget);
-
-      // Advance past the simulated analysis; the controller completes and
-      // auto-navigates to Result.
-      await tester.pump(kAnalyzeDuration);
-      await tester.pump(); // process navigation
-      await tester.pump(const Duration(milliseconds: 400)); // settle transition
-
+      await settleAnalysis(tester);
       expect(find.text('Available media'), findsOneWidget);
-      expect(find.text('Save to gallery'), findsOneWidget);
+      // Result reflects the analyzed host.
+      expect(find.text('demo.example.com'), findsOneWidget);
+    });
+
+    testWidgets('carousel URL → Carousel (analyzed items)', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpHome(tester, clipboard: 'https://demo.example.com/album/abc');
+      await tester.tap(find.text('Paste link'));
+      await settleAnalysis(tester);
+      expect(find.text('6 items found'), findsOneWidget);
+    });
+
+    testWidgets('invalid URL → invalid error', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpHome(tester, clipboard: 'not a url');
+      await tester.tap(find.text('Paste link'));
+      await settleAnalysis(tester);
+      expect(find.text('That doesn’t look like a link'), findsOneWidget);
+    });
+
+    testWidgets('protected URL → protected error', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpHome(tester, clipboard: 'https://x.example.com/private/abc');
+      await tester.tap(find.text('Paste link'));
+      await settleAnalysis(tester);
+      expect(find.text('This content is protected'), findsOneWidget);
+    });
+
+    testWidgets('unsupported URL → unsupported error', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpHome(tester, clipboard: 'https://unsupported.example.com/abc');
+      await tester.tap(find.text('Paste link'));
+      await settleAnalysis(tester);
+      expect(find.text('We can’t read this source yet'), findsOneWidget);
+    });
+
+    testWidgets('offline → network error', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpHome(
+        tester,
+        clipboard: 'https://demo.example.com/p/abc',
+        online: false,
+      );
+      await tester.tap(find.text('Paste link'));
+      await settleAnalysis(tester);
+      expect(find.text('Couldn’t reach this link'), findsOneWidget);
     });
   });
 
@@ -696,6 +856,12 @@ void main() {
         const Duration(milliseconds: 400),
       ); // settle; no settle()
       expect(find.text('Reading this link'), findsOneWidget);
+
+      // Let the re-run analysis settle so no timer is left pending at teardown.
+      await tester.pump(
+        kAnalyzeVisualDuration + const Duration(milliseconds: 400),
+      );
+      await tester.pump();
     });
 
     testWidgets('protected Try another link routes Home', (tester) async {
