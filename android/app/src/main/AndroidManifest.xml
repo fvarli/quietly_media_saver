@@ -7,6 +7,11 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- Pre-Q (≤28) needs write to insert into the MediaStore gallery (Pass 7B);
+         Android 10+ uses scoped MediaStore (no runtime write grant for app media). -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <application
         android:label="quietly_media_saver"
