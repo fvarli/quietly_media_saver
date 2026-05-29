@@ -101,14 +101,10 @@ class HistoryScreen extends ConsumerWidget {
       case 'open':
         gallery.open(entry);
         if (context.mounted) {
-          _snack(
-            context,
-            'Opening in your gallery arrives with gallery access.',
-          );
+          _snack(context, 'Opening in your gallery arrives soon.');
         }
       case 'share':
         gallery.share(entry);
-        if (context.mounted) _snack(context, 'Sharing is coming soon.');
     }
   }
 

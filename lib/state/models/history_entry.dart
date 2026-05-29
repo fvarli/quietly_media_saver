@@ -25,6 +25,7 @@ class HistoryEntry {
     required this.time,
     required this.group,
     this.filePath,
+    this.sourceKey,
   });
 
   /// Stable identity (persistence + remove-by-id).
@@ -43,8 +44,12 @@ class HistoryEntry {
 
   final HistoryGroup group;
 
-  /// Placeholder for a future local/gallery file reference (null this pass).
+  /// Local file reference for the saved media (app documents this pass; null
+  /// when not yet written). See [GalleryService].
   final String? filePath;
+
+  /// Dedupe identity for "already saved" (host|url). Null for seed entries.
+  final String? sourceKey;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -54,6 +59,7 @@ class HistoryEntry {
     'time': time,
     'group': group.name,
     'filePath': filePath,
+    'sourceKey': sourceKey,
   };
 
   static HistoryEntry fromJson(Map<String, dynamic> json) => HistoryEntry(
@@ -64,6 +70,7 @@ class HistoryEntry {
     time: json['time'] as String,
     group: HistoryGroup.values.byName(json['group'] as String),
     filePath: json['filePath'] as String?,
+    sourceKey: json['sourceKey'] as String?,
   );
 
   @override
@@ -75,10 +82,12 @@ class HistoryEntry {
       other.meta == meta &&
       other.time == time &&
       other.group == group &&
-      other.filePath == filePath;
+      other.filePath == filePath &&
+      other.sourceKey == sourceKey;
 
   @override
-  int get hashCode => Object.hash(id, kind, title, meta, time, group, filePath);
+  int get hashCode =>
+      Object.hash(id, kind, title, meta, time, group, filePath, sourceKey);
 }
 
 /// Seed history (HANDOFF screen 9), matching the prototype's SEED_HISTORY.

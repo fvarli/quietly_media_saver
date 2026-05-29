@@ -1,12 +1,11 @@
-// Quietly — widget + state + token tests (passes 1–6).
+// Quietly — widget + state + token tests (passes 1–7A).
 //
-// Covers the foundation, pass-2/3/4 UI, pass-5A–D services (permission /
-// connectivity / preferences / downloads / saved-media / gallery), and pass-6
-// analysis + clipboard (sample analyzer unit tests + the clipboard→analyze→
-// route flow, including each error mapping). All platform layers are faked
-// (no real channels); the deterministic SampleMediaAnalysisService is used
-// directly. Animated/analyzing screens use explicit pump(Duration), not
-// pumpAndSettle; long lazy lists use scrollUntilVisible.
+// Covers the foundation, pass-2/3/4 UI, pass-5A–D services, pass-6 analysis +
+// clipboard, and pass-7A gallery/file-save (sample save records a path, dedupe →
+// already-saved, open/share/remove via the service, JSON incl. filePath/
+// sourceKey). All platform layers are faked (no real channels); animated/
+// analyzing screens use explicit pump(Duration), not pumpAndSettle; long lazy
+// lists use scrollUntilVisible.
 
 import 'dart:async';
 
@@ -225,6 +224,13 @@ class FakeGalleryService implements GalleryService {
   int removeCalls = 0;
   int saveCalls = 0;
   HistoryEntry? lastRemoved;
+  String savedPath = '/fake/quietly_media/sample.png';
+
+  @override
+  Future<String> saveSample(MediaKind kind) async {
+    saveCalls++;
+    return savedPath;
+  }
 
   @override
   Future<void> open(HistoryEntry entry) async => openCalls++;
@@ -236,12 +242,6 @@ class FakeGalleryService implements GalleryService {
   Future<void> remove(HistoryEntry entry) async {
     removeCalls++;
     lastRemoved = entry;
-  }
-
-  @override
-  Future<bool> save(HistoryEntry entry) async {
-    saveCalls++;
-    return false;
   }
 }
 
@@ -941,8 +941,11 @@ void main() {
   });
 
   group('Permission + download flow', () {
-    // Pumps the full app at Result with permission + download faked. Returns the
-    // download fake so tests can drive completion/failure deterministically.
+    late ProviderContainer flowContainer;
+    late FakeGalleryService flowGallery;
+
+    // Pumps the full app at Result with permission + download + gallery faked.
+    // Returns the download fake so tests can drive completion/failure.
     Future<FakeDownloadQueueService> pumpAtResult(
       WidgetTester tester, {
       required PermissionStatus requestResult,
@@ -950,6 +953,7 @@ void main() {
       final permission = FakePermissionService(requestResult: requestResult);
       final download = FakeDownloadQueueService();
       addTearDown(download.dispose);
+      flowGallery = FakeGalleryService();
       final container = ProviderContainer(
         overrides: [
           permissionServiceProvider.overrideWithValue(permission),
@@ -957,8 +961,10 @@ void main() {
           savedMediaRepositoryProvider.overrideWithValue(
             FakeSavedMediaRepository(),
           ),
+          galleryServiceProvider.overrideWithValue(flowGallery),
         ],
       );
+      flowContainer = container;
       addTearDown(container.dispose);
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -992,12 +998,21 @@ void main() {
       expect(find.text('Saving video…'), findsOneWidget);
     });
 
-    testWidgets('queue completion → Success', (tester) async {
+    testWidgets('queue completion → Success + saves a file path', (
+      tester,
+    ) async {
       _usePhoneViewport(tester);
       final download = await saveAndAllow(tester);
       download.completeAll();
       await tester.pumpAndSettle();
       expect(find.text('Saved to gallery'), findsOneWidget);
+
+      // The gallery service saved a sample file and the new entry records it.
+      expect(flowGallery.saveCalls, 1);
+      expect(
+        flowContainer.read(appStateProvider).history.first.filePath,
+        flowGallery.savedPath,
+      );
     });
 
     testWidgets('queue failure → queueItemFailed error', (tester) async {
@@ -1006,6 +1021,47 @@ void main() {
       download.failFirst();
       await tester.pumpAndSettle();
       expect(find.text('A file didn’t save'), findsOneWidget);
+    });
+
+    testWidgets('duplicate save → already-saved (exists)', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAtResult(tester, requestResult: PermissionStatus.granted);
+
+      const url = 'https://demo.example.com/p/abc';
+      const host = 'demo.example.com';
+      final notifier = flowContainer.read(appStateProvider.notifier);
+      notifier.setSubmittedUrl(url);
+      notifier.setAnalysis(
+        const AnalysisResult(
+          type: AnalysisResultType.single,
+          host: host,
+          isPublic: true,
+          items: [
+            DetectedMediaItem(
+              id: 'm0',
+              kind: MediaKind.video,
+              sizeMb: 24,
+              durationSeconds: 42,
+            ),
+          ],
+        ),
+      );
+      notifier.setHistory([
+        HistoryEntry(
+          id: 'h0',
+          kind: MediaKind.video,
+          title: 'Video clip',
+          meta: '1080p · 24 MB',
+          time: 'Just now',
+          group: HistoryGroup.today,
+          sourceKey: dedupeKey(host, url),
+        ),
+      ]);
+      await tester.pump();
+
+      await tester.tap(find.text('Save to gallery'));
+      await tester.pumpAndSettle();
+      expect(find.text('Already in your gallery'), findsOneWidget);
     });
 
     testWidgets('Cancel returns Home and cancels the queue', (tester) async {
@@ -1320,17 +1376,43 @@ void main() {
   });
 
   group('HistoryEntry JSON', () {
-    test('round-trips through toJson/fromJson', () {
-      const entry = HistoryEntry(
-        id: 'x',
-        kind: MediaKind.video,
-        title: 'Title',
-        meta: 'Meta',
-        time: 'Just now',
-        group: HistoryGroup.yesterday,
-        filePath: '/tmp/x.mp4',
+    test(
+      'round-trips through toJson/fromJson (incl. filePath + sourceKey)',
+      () {
+        const entry = HistoryEntry(
+          id: 'x',
+          kind: MediaKind.video,
+          title: 'Title',
+          meta: 'Meta',
+          time: 'Just now',
+          group: HistoryGroup.yesterday,
+          filePath: '/tmp/x.mp4',
+          sourceKey: 'demo.example.com|https://demo.example.com/p/abc',
+        );
+        final restored = HistoryEntry.fromJson(entry.toJson());
+        expect(restored, entry);
+        expect(restored.filePath, '/tmp/x.mp4');
+        expect(restored.sourceKey, entry.sourceKey);
+      },
+    );
+
+    test('dedupe key + isAlreadySaved', () {
+      expect(dedupeKey('h', 'u'), 'h|u');
+      const state = AppState(
+        history: [
+          HistoryEntry(
+            id: 'h0',
+            kind: MediaKind.video,
+            title: 'Video clip',
+            meta: 'm',
+            time: 't',
+            group: HistoryGroup.today,
+            sourceKey: 'h|u',
+          ),
+        ],
       );
-      expect(HistoryEntry.fromJson(entry.toJson()), entry);
+      expect(state.isAlreadySaved('h|u'), isTrue);
+      expect(state.isAlreadySaved('other'), isFalse);
     });
   });
 

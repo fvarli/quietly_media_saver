@@ -70,6 +70,10 @@ class AnalysisException implements Exception {
   String toString() => 'AnalysisException(${kind.name})';
 }
 
+/// Dedupe identity for a saved link (host + URL). Stored on
+/// `HistoryEntry.sourceKey` and checked to drive the "already saved" state.
+String dedupeKey(String host, String url) => '$host|$url';
+
 /// Maps an analysis failure to the existing error-screen config key.
 AppErrorKind toAppErrorKind(AnalysisFailureKind kind) => switch (kind) {
   AnalysisFailureKind.invalidUrl => AppErrorKind.invalid,

@@ -389,6 +389,42 @@ refusal.
 
 ---
 
+## Pass 7A — Gallery / file-save boundary (sample bytes)
+
+The last placeholder service becomes real: saving writes an actual local file
+(sample bytes — no real download), and dedupe drives the "already saved" state.
+
+### Service — `lib/services/gallery/gallery_service.dart`
+`GalleryService` is redefined for real use: `saveSample(MediaKind) → Future<String>`
+(path), `open`/`share`/`remove(HistoryEntry)`. `LocalGalleryService`:
+- `saveSample`: `path_provider` → app documents `…/quietly_media/<micros>.<png|mp4>`;
+  writes **synthetic** sample bytes (1×1 PNG / tiny blob) — legally safe, not
+  downloaded content.
+- `share`: `share_plus` (guarded; desktop may no-op); `remove`: `File.delete`
+  (guarded); `open`: documented no-op placeholder (real open → 7B).
+
+### Dedupe → `exists`
+`HistoryEntry` gains `sourceKey` (persisted, JSON). `dedupeKey(host,url)` +
+`AppState.isAlreadySaved(key)`. `AppFlow.requestSave` checks it first and, on a
+match, shows `AppErrorKind.exists` ("Already in your gallery") instead of
+re-downloading.
+
+### Wiring (notifier stays pure; file I/O in the service/flow)
+`AppFlow.finishDownload` is now async: `gallery.saveSample(kind)` (guarded) →
+`notifier.finishDownload(filePath:…, sourceKey:…)` → Success. History remove
+already routes through `gallery.remove` (now deletes the file) + `removeHistoryEntry`
+(persisted). The notifier only stores the path/key.
+
+### Assumptions / deferrals
+- Files live in **app documents**, not the OS gallery (real MediaStore/Photos
+  insertion + write permission → **7B**); `open` real behavior → 7B.
+- Dedupe is link-level (`host|url`); per-item refinement later.
+- Tests fake the gallery (and override it in the download-flow harness) so no
+  real `path_provider`/`share_plus` runs; save-failure is guarded (proceeds
+  without a path).
+
+---
+
 ## Layering
 
 ```

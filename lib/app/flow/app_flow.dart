@@ -24,6 +24,7 @@ import 'package:go_router/go_router.dart';
 import '../../services/analysis/media_analysis_provider.dart';
 import '../../services/clipboard/clipboard_service_provider.dart';
 import '../../services/downloads/download_queue_provider.dart';
+import '../../services/gallery/gallery_service_provider.dart';
 import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/analysis_result.dart';
@@ -158,6 +159,13 @@ class AppFlow {
   /// Platform I/O lives here, not in the notifier. Navigation runs on [context]
   /// (the screen), guarded across awaits with `context.mounted`.
   Future<void> requestSave(List<MediaKind> kinds) async {
+    // Dedupe: re-saving the same analyzed link → "already saved".
+    final key = _sourceKey();
+    if (key != null && ref.read(appStateProvider).isAlreadySaved(key)) {
+      showError(AppErrorKind.exists);
+      return;
+    }
+
     _notifier.requestSave(kinds); // record lastSaved / pendingSave
     if (ref.read(appStateProvider).permissionGranted) {
       startDownload(kinds);
@@ -203,9 +211,31 @@ class AppFlow {
     context.pushReplacementNamed(AppRoutes.downloading);
   }
 
-  /// Download finished → success (replaces the download screen).
-  void finishDownload() {
-    _notifier.finishDownload();
+  /// Download finished → save a (sample) local file via the gallery service,
+  /// record it on the history entry, then → success. File I/O lives in the
+  /// service; the notifier only stores the resulting path/dedupe key.
+  Future<void> finishDownload() async {
+    final state = ref.read(appStateProvider);
+    final kind = state.lastSaved.isNotEmpty
+        ? state.lastSaved.first
+        : MediaKind.video;
+    String? path;
+    try {
+      path = await ref.read(galleryServiceProvider).saveSample(kind);
+    } catch (_) {
+      // Save failed (e.g. storage unavailable) — proceed without a file path.
+    }
+    if (!context.mounted) return;
+    _notifier.finishDownload(filePath: path, sourceKey: _sourceKey());
     context.pushReplacementNamed(AppRoutes.success);
+  }
+
+  /// Dedupe key for the current analysis (host|url), or null when unknown.
+  String? _sourceKey() {
+    final state = ref.read(appStateProvider);
+    final host = state.analysis?.host;
+    final url = state.lastSubmittedUrl;
+    if (host == null || url == null) return null;
+    return dedupeKey(host, url);
   }
 }

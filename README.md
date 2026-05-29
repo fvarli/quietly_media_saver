@@ -12,6 +12,17 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 7A — Gallery / file-save boundary
+
+The gallery service is now real: `LocalGalleryService` (`lib/services/gallery/`)
+writes a saved file to the **app documents directory** using **synthetic sample
+bytes** (no real download/scraping), records it on `HistoryEntry.filePath`,
+deletes it on remove, and shares via `share_plus`. **Dedupe** (link-level
+`host|url`, stored on `HistoryEntry.sourceKey`) drives the "Already in your
+gallery" (`exists`) state. `open` is a documented placeholder. Real OS gallery
+insertion (MediaStore/Photos) + real open are deferred to **7B**; real network
+download + analyzer to **8**. See `docs/ARCHITECTURE.md` → "Pass 7A".
+
 ## Build pass 6 — URL analysis + real clipboard
 
 The core flow is now **data-driven**. A `MediaAnalysisService`

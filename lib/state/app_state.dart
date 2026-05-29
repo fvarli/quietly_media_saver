@@ -121,6 +121,9 @@ class AppState {
   /// True when the active download is a multi-file queue.
   bool get isMultiDownload => queue.length > 1;
 
+  /// Whether a save with the given dedupe key is already in history.
+  bool isAlreadySaved(String key) => history.any((h) => h.sourceKey == key);
+
   /// Snapshot of the persisted preference fields (see [AppPreferences]).
   AppPreferences get toPreferences => AppPreferences(
     quality: quality,

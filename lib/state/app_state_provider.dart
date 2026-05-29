@@ -187,7 +187,7 @@ class AppStateNotifier extends Notifier<AppState> {
   /// Finalize a completed download (mirrors `app.finishDownload`): prepend a
   /// history entry and move to success. The downloader will call this later;
   /// exposed now so the flow/tests can exercise the transition.
-  void finishDownload() {
+  void finishDownload({String? filePath, String? sourceKey}) {
     final kinds = state.lastSaved;
     final id = 'save_${DateTime.now().microsecondsSinceEpoch}';
     final HistoryEntry entry = kinds.length > 1
@@ -200,6 +200,8 @@ class AppStateNotifier extends Notifier<AppState> {
             meta: 'Mixed · saved',
             time: 'Just now',
             group: HistoryGroup.today,
+            filePath: filePath,
+            sourceKey: sourceKey,
           )
         : HistoryEntry(
             id: id,
@@ -210,6 +212,8 @@ class AppStateNotifier extends Notifier<AppState> {
             meta: '${state.quality} · saved',
             time: 'Just now',
             group: HistoryGroup.today,
+            filePath: filePath,
+            sourceKey: sourceKey,
           );
     state = state.copyWith(
       screen: AppScreen.success,
