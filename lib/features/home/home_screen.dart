@@ -14,7 +14,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/bootstrap/app_bootstrap.dart';
 import '../../app/flow/app_flow.dart';
+import '../../app/router/sheets.dart';
 import '../../core/a11y/a11y.dart';
 import '../../core/icons/q_icons.dart';
 import '../../core/theme/tokens/app_colors.dart';
@@ -27,8 +29,6 @@ import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_section_label.dart';
 import '../../core/widgets/rights_note.dart';
-import '../../services/analysis/media_analysis_service.dart';
-import '../../services/clipboard/clipboard_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/history_entry.dart';
@@ -41,23 +41,14 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _gateShown = false;
+
   @override
   void initState() {
     super.initState();
-    _detectClipboard();
-  }
-
-  /// Best-effort: surface a copied link as a suggestion (no error on failure).
-  Future<void> _detectClipboard() async {
-    try {
-      final text = await ref.read(clipboardServiceProvider).readText();
-      final trimmed = text?.trim() ?? '';
-      if (trimmed.isNotEmpty && isLikelyUrl(trimmed) && mounted) {
-        ref.read(appStateProvider.notifier).setClipboardUrl(trimmed);
-      }
-    } catch (_) {
-      // Clipboard unavailable — just show the manual paste option.
-    }
+    // Best-effort clipboard detection (one implementation, in the bootstrap, so
+    // it's reused on resume too).
+    ref.read(bootstrapProvider).refreshClipboard();
   }
 
   @override
@@ -66,6 +57,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final state = ref.watch(appStateProvider);
     final history = state.history;
     final clipboardUrl = state.clipboardUrl;
+
+    // First-run acceptable-use gate: show once when prefs have resolved and the
+    // acknowledgement is missing. Fails open (no gate) when prefs never resolve.
+    if (state.firstRunResolved && !state.firstRunAcknowledged && !_gateShown) {
+      _gateShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showAcceptableUseSheet(context, ref);
+      });
+    }
 
     return Scaffold(
       body: SafeArea(

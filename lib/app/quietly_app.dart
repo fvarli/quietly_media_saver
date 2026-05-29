@@ -27,12 +27,27 @@ class QuietlyApp extends ConsumerStatefulWidget {
 }
 
 class _QuietlyAppState extends ConsumerState<QuietlyApp> {
+  AppLifecycleListener? _lifecycle;
+
   @override
   void initState() {
     super.initState();
-    // Startup wiring (load prefs, connectivity, permission refresh). Reading the
-    // provider also registers the preference write-through listener. Best-effort.
+    // Startup wiring (load prefs, connectivity, permission refresh, clipboard).
+    // Reading the provider also registers the preference write-through listener.
+    // Best-effort.
     ref.read(bootstrapProvider).start();
+    // On return to the foreground, re-check permission / reachability / clipboard.
+    // The bootstrap does NOT re-subscribe to connectivity here, so no duplicate
+    // listeners accumulate across resumes.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref.read(bootstrapProvider).onResume(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle?.dispose();
+    super.dispose();
   }
 
   @override

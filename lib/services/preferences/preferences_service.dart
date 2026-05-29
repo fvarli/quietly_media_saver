@@ -28,6 +28,7 @@ class SharedPreferencesService implements PreferencesService {
   static const _kAskQuality = 'pref.askQualityEveryTime';
   static const _kWifiOnly = 'pref.wifiOnly';
   static const _kNotify = 'pref.notify';
+  static const _kFirstRunAck = 'pref.firstRunAcknowledged';
 
   @override
   Future<AppPreferences> load() async {
@@ -39,6 +40,8 @@ class SharedPreferencesService implements PreferencesService {
           prefs.getBool(_kAskQuality) ?? defaults.askQualityEveryTime,
       wifiOnly: prefs.getBool(_kWifiOnly) ?? defaults.wifiOnly,
       notify: prefs.getBool(_kNotify) ?? defaults.notify,
+      firstRunAcknowledged:
+          prefs.getBool(_kFirstRunAck) ?? defaults.firstRunAcknowledged,
     );
   }
 
@@ -49,5 +52,6 @@ class SharedPreferencesService implements PreferencesService {
     await prefs.setBool(_kAskQuality, p.askQualityEveryTime);
     await prefs.setBool(_kWifiOnly, p.wifiOnly);
     await prefs.setBool(_kNotify, p.notify);
+    await prefs.setBool(_kFirstRunAck, p.firstRunAcknowledged);
   }
 }

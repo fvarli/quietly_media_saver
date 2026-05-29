@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
+import 'package:quietly_media_saver/app/bootstrap/app_bootstrap.dart';
 import 'package:quietly_media_saver/app/quietly_app.dart';
 import 'package:quietly_media_saver/app/router/app_router.dart';
 import 'package:quietly_media_saver/app/router/app_routes.dart';
@@ -55,6 +56,8 @@ import 'package:quietly_media_saver/services/permissions/permission_service.dart
 import 'package:quietly_media_saver/services/permissions/permission_service_provider.dart';
 import 'package:quietly_media_saver/services/preferences/preferences_service.dart';
 import 'package:quietly_media_saver/services/preferences/preferences_service_provider.dart';
+import 'package:quietly_media_saver/services/reachability/reachability_service.dart';
+import 'package:quietly_media_saver/services/reachability/reachability_service_provider.dart';
 import 'package:quietly_media_saver/services/saved_media/saved_media_repository.dart';
 import 'package:quietly_media_saver/services/saved_media/saved_media_repository_provider.dart';
 import 'package:quietly_media_saver/state/app_state.dart';
@@ -94,13 +97,17 @@ class FakeConnectivityService implements ConnectivityService {
   FakeConnectivityService({this.online = true});
 
   bool online;
+  int subscribeCount = 0;
   final StreamController<bool> _controller = StreamController<bool>.broadcast();
 
   @override
   Future<bool> isOnline() async => online;
 
   @override
-  Stream<bool> onlineChanges() => _controller.stream;
+  Stream<bool> onlineChanges() {
+    subscribeCount++;
+    return _controller.stream;
+  }
 
   void emit(bool value) => _controller.add(value);
 
@@ -267,9 +274,13 @@ class FakeGalleryService implements GalleryService {
   }
 }
 
-/// In-memory PreferencesService for tests — no platform channels.
+/// In-memory PreferencesService for tests — no platform channels. Defaults to
+/// `firstRunAcknowledged: true` so harnesses that land on Home don't trip the
+/// first-run gate; gate tests construct it with `false`.
 class FakePreferencesService implements PreferencesService {
-  FakePreferencesService([this.stored = const AppPreferences()]);
+  FakePreferencesService([
+    this.stored = const AppPreferences(firstRunAcknowledged: true),
+  ]);
 
   AppPreferences stored;
   AppPreferences? saved;
@@ -281,6 +292,20 @@ class FakePreferencesService implements PreferencesService {
   Future<void> save(AppPreferences prefs) async {
     saved = prefs;
     stored = prefs;
+  }
+}
+
+/// In-memory ReachabilityService for tests — never hits the network.
+class FakeReachabilityService implements ReachabilityService {
+  FakeReachabilityService([this.result = Reachability.online]);
+
+  Reachability result;
+  int checks = 0;
+
+  @override
+  Future<Reachability> check() async {
+    checks++;
+    return result;
   }
 }
 
@@ -659,6 +684,9 @@ void main() {
               FakeClipboardService(url),
             ),
             connectivityServiceProvider.overrideWithValue(connectivity),
+            reachabilityServiceProvider.overrideWithValue(
+              FakeReachabilityService(),
+            ),
             preferencesServiceProvider.overrideWithValue(
               FakePreferencesService(),
             ),
@@ -722,6 +750,9 @@ void main() {
             FakeClipboardService(clipboard),
           ),
           connectivityServiceProvider.overrideWithValue(connectivity),
+          reachabilityServiceProvider.overrideWithValue(
+            FakeReachabilityService(),
+          ),
           preferencesServiceProvider.overrideWithValue(
             FakePreferencesService(),
           ),
@@ -1512,6 +1543,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           connectivityServiceProvider.overrideWithValue(connectivity),
+          reachabilityServiceProvider.overrideWithValue(
+            FakeReachabilityService(),
+          ),
           preferencesServiceProvider.overrideWithValue(preferences),
           permissionServiceProvider.overrideWithValue(
             permission ?? FakePermissionService(),
@@ -1539,7 +1573,11 @@ void main() {
         tester,
         connectivity: FakeConnectivityService(online: true),
         preferences: FakePreferencesService(
-          const AppPreferences(quality: '720p', wifiOnly: false),
+          const AppPreferences(
+            quality: '720p',
+            wifiOnly: false,
+            firstRunAcknowledged: true,
+          ),
         ),
       );
 
@@ -1583,6 +1621,171 @@ void main() {
     });
   });
 
+  group('Reachability mapping', () {
+    test('2xx/204 → online', () async {
+      final svc = HttpReachabilityService(
+        client: MockClient((_) async => http.Response('', 204)),
+      );
+      expect(await svc.check(), Reachability.online);
+    });
+
+    test('connection failure → offline', () async {
+      final svc = HttpReachabilityService(
+        client: MockClient((_) async => throw const SocketException('down')),
+      );
+      expect(await svc.check(), Reachability.offline);
+    });
+
+    test('timeout / ambiguous → unknown', () async {
+      final timeoutSvc = HttpReachabilityService(
+        client: MockClient((_) async => throw TimeoutException('slow')),
+      );
+      expect(await timeoutSvc.check(), Reachability.unknown);
+      final errSvc = HttpReachabilityService(
+        client: MockClient((_) async => http.Response('', 500)),
+      );
+      expect(await errSvc.check(), Reachability.unknown);
+    });
+  });
+
+  group('Bootstrap resume orchestration', () {
+    test(
+      'onResume refreshes permission / reachability / clipboard; no dup sub',
+      () async {
+        final connectivity = FakeConnectivityService(online: true);
+        addTearDown(connectivity.dispose);
+        final permission = FakePermissionService(
+          statusResult: PermissionStatus.denied,
+        );
+        final reach = FakeReachabilityService(Reachability.online);
+        final clipboard = FakeClipboardService();
+        final container = ProviderContainer(
+          overrides: [
+            connectivityServiceProvider.overrideWithValue(connectivity),
+            reachabilityServiceProvider.overrideWithValue(reach),
+            preferencesServiceProvider.overrideWithValue(
+              FakePreferencesService(),
+            ),
+            savedMediaRepositoryProvider.overrideWithValue(
+              FakeSavedMediaRepository(),
+            ),
+            permissionServiceProvider.overrideWithValue(permission),
+            clipboardServiceProvider.overrideWithValue(clipboard),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final bootstrap = container.read(bootstrapProvider);
+        await bootstrap.start();
+        expect(connectivity.subscribeCount, 1); // subscribed once
+        expect(
+          container.read(appStateProvider).permissionStatus,
+          PermissionStatus.denied,
+        );
+
+        // Change the world, then resume.
+        permission.statusResult = PermissionStatus.granted;
+        reach.result = Reachability.offline;
+        clipboard.text = 'https://cdn.test/clip.mp4';
+        await bootstrap.onResume();
+
+        final state = container.read(appStateProvider);
+        expect(state.permissionStatus, PermissionStatus.granted); // refreshed
+        expect(state.offline, isTrue); // reachability re-evaluated → offline
+        expect(state.clipboardUrl, 'https://cdn.test/clip.mp4'); // re-detected
+        expect(connectivity.subscribeCount, 1); // NOT re-subscribed on resume
+      },
+    );
+
+    test('reachability unknown leaves the offline banner unchanged', () async {
+      final connectivity = FakeConnectivityService(online: true);
+      addTearDown(connectivity.dispose);
+      final reach = FakeReachabilityService(Reachability.unknown);
+      final container = ProviderContainer(
+        overrides: [
+          connectivityServiceProvider.overrideWithValue(connectivity),
+          reachabilityServiceProvider.overrideWithValue(reach),
+          preferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(),
+          ),
+          savedMediaRepositoryProvider.overrideWithValue(
+            FakeSavedMediaRepository(),
+          ),
+          permissionServiceProvider.overrideWithValue(FakePermissionService()),
+          clipboardServiceProvider.overrideWithValue(FakeClipboardService()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final bootstrap = container.read(bootstrapProvider);
+
+      // Pre-set offline true, then a resume with interface up + unknown probe.
+      container.read(appStateProvider.notifier).setOffline(true);
+      await bootstrap.onResume();
+      expect(container.read(appStateProvider).offline, isTrue); // unchanged
+    });
+  });
+
+  group('First-run acceptable-use gate', () {
+    late FakePreferencesService gatePrefs;
+
+    Future<ProviderContainer> pumpApp(
+      WidgetTester tester, {
+      required bool acknowledged,
+    }) async {
+      final connectivity = FakeConnectivityService(online: true);
+      addTearDown(connectivity.dispose);
+      gatePrefs = FakePreferencesService(
+        AppPreferences(firstRunAcknowledged: acknowledged),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          connectivityServiceProvider.overrideWithValue(connectivity),
+          reachabilityServiceProvider.overrideWithValue(
+            FakeReachabilityService(),
+          ),
+          preferencesServiceProvider.overrideWithValue(gatePrefs),
+          savedMediaRepositoryProvider.overrideWithValue(
+            FakeSavedMediaRepository(),
+          ),
+          permissionServiceProvider.overrideWithValue(FakePermissionService()),
+          clipboardServiceProvider.overrideWithValue(FakeClipboardService()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const QuietlyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('first run shows the gate; acknowledging persists', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final container = await pumpApp(tester, acknowledged: false);
+      expect(find.text('A quick note before you start'), findsOneWidget);
+      expect(find.textContaining('public media only'), findsOneWidget);
+
+      await tester.tap(find.text('I understand'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A quick note before you start'), findsNothing);
+      expect(container.read(appStateProvider).firstRunAcknowledged, isTrue);
+      expect(gatePrefs.saved?.firstRunAcknowledged, isTrue); // persisted
+    });
+
+    testWidgets('returning (acknowledged) user sees no gate', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpApp(tester, acknowledged: true);
+      expect(find.text('A quick note before you start'), findsNothing);
+      expect(find.text('Paste a link to get started.'), findsOneWidget);
+    });
+  });
+
   group('History persistence', () {
     Future<({ProviderContainer container, FakeSavedMediaRepository repo})>
     pumpApp(WidgetTester tester, {List<HistoryEntry>? stored}) async {
@@ -1593,6 +1796,9 @@ void main() {
         overrides: [
           savedMediaRepositoryProvider.overrideWithValue(repo),
           connectivityServiceProvider.overrideWithValue(connectivity),
+          reachabilityServiceProvider.overrideWithValue(
+            FakeReachabilityService(),
+          ),
           preferencesServiceProvider.overrideWithValue(
             FakePreferencesService(),
           ),

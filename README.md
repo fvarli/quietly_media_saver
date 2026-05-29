@@ -12,6 +12,23 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 10 — Release-readiness stabilization
+
+Hardens the app for a first release (no new media sources — still direct public
+URLs only). **Lifecycle resume**: an `AppLifecycleListener` re-checks permission,
+reachability, and the clipboard on foreground (no duplicate connectivity
+listeners). **First-run gate**: a calm, non-dismissible acceptable-use sheet over
+Home (public media only · you must have the rights · no private/login/DRM),
+persisted so it shows once — and failing open (no gate) if storage is
+unavailable. **True reachability**: a lightweight HEAD probe
+(`ReachabilityService`) layered on `connectivity_plus`, flipping the offline
+banner only when reasonably certain. **Error polish**: rights-aware copy stays
+verbatim; "Already in your gallery" now opens the saved item. **Android**: the
+release-blocking `INTERNET` permission is added to the production manifest and the
+launcher label is "Quietly" (production `applicationId` + release signing remain
+documented tasks). Adds `docs/QA_CHECKLIST.md`; tests stay fake/`MockClient`-only
+(91 total, no real network). See `docs/ARCHITECTURE.md` → "Pass 10".
+
 ## Build pass 9A — Real direct-media analyzer
 
 The analyzer is now **real** for **direct, publicly accessible media file URLs

@@ -566,6 +566,50 @@ confirmed public media file maps to the existing `invalid` / `protected` /
 
 ---
 
+## Pass 10 — Release-readiness stabilization
+
+Hardens the app for a first release (no new media sources — still direct public
+URLs only): resume-time refresh, a first-run acceptable-use gate, true
+reachability, error wiring, and Android packaging fixes.
+
+- **Lifecycle resume** — `_QuietlyAppState` owns an `AppLifecycleListener`
+  (disposed in `dispose`) whose `onResume` calls `AppBootstrap.onResume()`, which
+  re-runs the one-shot refreshers (permission, reachability, clipboard) **without
+  re-subscribing to connectivity** — the single subscription from `start()`
+  survives, so no duplicate listeners accumulate. Home's clipboard detection moved
+  into `AppBootstrap.refreshClipboard()` (one implementation, reused on resume).
+- **First-run gate** — a calm, non-dismissible acceptable-use sheet
+  (`features/sheets/acceptable_use_sheet.dart`, shown via
+  `showAcceptableUseSheet`) over Home. Gated on `AppState.firstRunResolved &&
+  !firstRunAcknowledged`: `firstRunAcknowledged` is persisted (`AppPreferences` +
+  `pref.firstRunAcknowledged`), while runtime-only `firstRunResolved` is set
+  **only when preferences load succeeds** — so a failed/absent load fails **open**
+  (no gate), which is also why the existing test harnesses never trip it.
+  Acknowledging persists via the existing `toPreferences` write-through.
+- **True reachability** — `ReachabilityService` (`enum Reachability
+  {online, offline, unknown}`); `HttpReachabilityService` does a short HEAD to a
+  neutral generate-204 endpoint (injectable client/timeout). `connectivity_plus`
+  stays the fast interface signal; the bootstrap flips the offline banner **only
+  when certain** — no interface → offline; interface up → confirm via the probe
+  (`online`→clear, `offline`→set, `unknown`→leave unchanged). The initial confirm
+  is fire-and-forget so startup isn't gated on the probe.
+- **Error wiring** — the 8 rights-aware error copies stay **verbatim** (not
+  softened). The `exists` ("Already in your gallery") primary action now opens the
+  matching saved entry via `GalleryService.open` (looked up by `sourceKey`),
+  replacing the placeholder SnackBar.
+- **Android packaging** — `INTERNET` added to the **production** manifest (it was
+  only in debug/profile → release builds had no network); `android:label` →
+  "Quietly". Media permissions unchanged (scoped, not excessive). `applicationId`
+  stays `com.example.quietly_media_saver` and the build still uses the debug
+  signing config — **documented release tasks**, not changed here (minSdk 24 /
+  targetSdk 36 / compileSdk 36).
+- **Docs/tests** — `docs/QA_CHECKLIST.md` (manual device pass). Tests (91 total):
+  reachability mapping (`MockClient`), resume orchestration (refresh + no dup
+  subscription + unknown-leaves-banner), first-run gate (shows once + persists).
+  All fakes/`MockClient` — no real network or platform channels.
+
+---
+
 ## Layering
 
 ```

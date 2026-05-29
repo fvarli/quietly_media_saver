@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Network access for direct-media analysis (HTTP probe) and downloads.
+         Required in the production manifest — the Flutter tool only adds it to
+         the debug/profile manifests, so release builds would otherwise have no
+         network. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Gallery/media read access (Pass 5A). Android 13+ uses scoped media
          permissions; older Android falls back to read external storage. Write/
          save permissions are added with the gallery-save pass (5C). -->
@@ -14,7 +19,7 @@
         android:maxSdkVersion="28" />
 
     <application
-        android:label="quietly_media_saver"
+        android:label="Quietly"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

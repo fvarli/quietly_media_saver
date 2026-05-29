@@ -138,6 +138,15 @@ class AppStateNotifier extends Notifier<AppState> {
   /// Toggle the offline banner state (real connectivity detection in Pass 5).
   void setOffline(bool value) => state = state.copyWith(offline: value);
 
+  /// Record the first-run acceptable-use acknowledgement (persisted via the
+  /// bootstrap write-through listener).
+  void setFirstRunAcknowledged(bool value) =>
+      state = state.copyWith(firstRunAcknowledged: value);
+
+  /// Mark that preferences loaded successfully, so [AppState.firstRunResolved]
+  /// is authoritative and the first-run gate can be evaluated.
+  void markFirstRunResolved() => state = state.copyWith(firstRunResolved: true);
+
   /// Replace the history list (bootstrap applies persisted history).
   void setHistory(List<HistoryEntry> history) =>
       state = state.copyWith(history: history);

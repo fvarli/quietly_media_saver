@@ -22,6 +22,7 @@ class AppPreferences {
     this.askQualityEveryTime = false,
     this.wifiOnly = true,
     this.notify = true,
+    this.firstRunAcknowledged = false,
   });
 
   final String quality;
@@ -29,16 +30,22 @@ class AppPreferences {
   final bool wifiOnly;
   final bool notify;
 
+  /// Whether the first-run acceptable-use acknowledgement has been accepted.
+  /// Persisted so the calm rights gate is shown only once.
+  final bool firstRunAcknowledged;
+
   AppPreferences copyWith({
     String? quality,
     bool? askQualityEveryTime,
     bool? wifiOnly,
     bool? notify,
+    bool? firstRunAcknowledged,
   }) => AppPreferences(
     quality: quality ?? this.quality,
     askQualityEveryTime: askQualityEveryTime ?? this.askQualityEveryTime,
     wifiOnly: wifiOnly ?? this.wifiOnly,
     notify: notify ?? this.notify,
+    firstRunAcknowledged: firstRunAcknowledged ?? this.firstRunAcknowledged,
   );
 
   @override
@@ -47,9 +54,15 @@ class AppPreferences {
       other.quality == quality &&
       other.askQualityEveryTime == askQualityEveryTime &&
       other.wifiOnly == wifiOnly &&
-      other.notify == notify;
+      other.notify == notify &&
+      other.firstRunAcknowledged == firstRunAcknowledged;
 
   @override
-  int get hashCode =>
-      Object.hash(quality, askQualityEveryTime, wifiOnly, notify);
+  int get hashCode => Object.hash(
+    quality,
+    askQualityEveryTime,
+    wifiOnly,
+    notify,
+    firstRunAcknowledged,
+  );
 }

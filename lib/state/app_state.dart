@@ -46,6 +46,8 @@ class AppState {
     this.analysis,
     this.lastSubmittedUrl,
     this.clipboardUrl,
+    this.firstRunAcknowledged = false,
+    this.firstRunResolved = false,
   });
 
   /// Current logical screen (state-machine). Navigation is reflected by
@@ -98,6 +100,15 @@ class AppState {
   /// A valid-looking URL detected on the clipboard (drives the Home suggestion).
   final String? clipboardUrl;
 
+  /// Whether the first-run acceptable-use gate has been accepted (persisted).
+  final bool firstRunAcknowledged;
+
+  /// Whether preferences have been successfully loaded, so the first-run flag is
+  /// authoritative. Runtime-only (NOT persisted): the gate is shown only when
+  /// `firstRunResolved && !firstRunAcknowledged`, so a failed/absent load
+  /// fails open (no gate) rather than gating every launch.
+  final bool firstRunResolved;
+
   // ── Derived getters ───────────────────────────────────────
   /// Resolved quality option for [quality].
   QualityOption get qualityOption => kQualityOptions.firstWhere(
@@ -130,6 +141,7 @@ class AppState {
     askQualityEveryTime: toggles.askQualityEveryTime,
     wifiOnly: toggles.wifiOnly,
     notify: toggles.notify,
+    firstRunAcknowledged: firstRunAcknowledged,
   );
 
   /// History grouped in display order (only non-empty groups).
@@ -167,6 +179,8 @@ class AppState {
     AnalysisResult? analysis,
     String? lastSubmittedUrl,
     String? clipboardUrl,
+    bool? firstRunAcknowledged,
+    bool? firstRunResolved,
   }) {
     return AppState(
       screen: screen ?? this.screen,
@@ -185,6 +199,8 @@ class AppState {
       analysis: analysis ?? this.analysis,
       lastSubmittedUrl: lastSubmittedUrl ?? this.lastSubmittedUrl,
       clipboardUrl: clipboardUrl ?? this.clipboardUrl,
+      firstRunAcknowledged: firstRunAcknowledged ?? this.firstRunAcknowledged,
+      firstRunResolved: firstRunResolved ?? this.firstRunResolved,
     );
   }
 }

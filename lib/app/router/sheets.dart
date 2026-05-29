@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/sheets/acceptable_use_sheet.dart';
 import '../../features/sheets/permission_sheet.dart';
 import '../../features/sheets/quality_sheet.dart';
 import '../../state/app_state_provider.dart';
@@ -38,6 +39,22 @@ Future<void> showQualitySheet(BuildContext context, WidgetRef ref) async {
   ref.read(appStateProvider.notifier).openSheet(AppSheet.quality);
   await _showQuietlySheet(context, builder: (_) => const QualitySheet());
   ref.read(appStateProvider.notifier).closeSheet();
+}
+
+/// Shows the one-time, non-dismissible acceptable-use gate over Home and records
+/// the acknowledgement (persisted via the bootstrap write-through). No back / no
+/// scrim-tap / no drag — the single "I understand" button is the only exit.
+Future<void> showAcceptableUseSheet(BuildContext context, WidgetRef ref) async {
+  await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    isDismissible: false,
+    enableDrag: false,
+    useSafeArea: true,
+    barrierColor: const Color(0x57190E08),
+    builder: (_) => const AcceptableUseSheet(),
+  );
+  ref.read(appStateProvider.notifier).setFirstRunAcknowledged(true);
 }
 
 /// Opens the gallery-permission request sheet (HANDOFF screen 11) and returns

@@ -62,7 +62,7 @@ class ErrorScreen extends ConsumerWidget {
     final kind = ref.watch(appStateProvider).error;
     final cfg = kErrorConfig[kind] ?? kErrorConfig[AppErrorKind.protected]!;
     final tone = _toneColors(cfg.tone);
-    final actions = _actionsFor(kind, flow, context);
+    final actions = _actionsFor(kind, flow);
     final showRefusal =
         kind == AppErrorKind.protected || kind == AppErrorKind.unsupported;
 
@@ -163,13 +163,7 @@ class ErrorScreen extends ConsumerWidget {
   ({VoidCallback primary, VoidCallback secondary}) _actionsFor(
     AppErrorKind kind,
     AppFlow flow,
-    BuildContext context,
   ) {
-    void gallery() => _placeholderSnack(
-      context,
-      'Saved to your gallery. Opening it arrives with gallery access.',
-    );
-
     return switch (kind) {
       AppErrorKind.network => (
         primary: flow.retryAnalysis,
@@ -179,7 +173,11 @@ class ErrorScreen extends ConsumerWidget {
         primary: flow.goHome,
         secondary: flow.openSettings,
       ),
-      AppErrorKind.exists => (primary: gallery, secondary: flow.goHome),
+      // "Already in your gallery" → open the matching saved entry.
+      AppErrorKind.exists => (
+        primary: flow.openExistingSaved,
+        secondary: flow.goHome,
+      ),
       AppErrorKind.permissionDeniedPermanently => (
         // Real OS app-settings deep-link.
         primary: flow.openSystemSettings,
@@ -192,12 +190,6 @@ class ErrorScreen extends ConsumerWidget {
       // protected / invalid / unsupported: both return Home.
       _ => (primary: flow.goHome, secondary: flow.goHome),
     };
-  }
-
-  void _placeholderSnack(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

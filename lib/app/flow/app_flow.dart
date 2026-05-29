@@ -31,6 +31,7 @@ import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/analysis_result.dart';
 import '../../state/models/app_enums.dart';
+import '../../state/models/history_entry.dart';
 import '../router/app_routes.dart';
 import '../router/sheets.dart';
 
@@ -255,6 +256,32 @@ class AppFlow {
     if (!context.mounted) return;
     _notifier.finishDownload(filePath: savedPath, sourceKey: _sourceKey());
     context.pushReplacementNamed(AppRoutes.success);
+  }
+
+  /// Open the already-saved entry that matches the current analysis source
+  /// (the "Already in your gallery" recovery). Falls back to a calm pointer to
+  /// History when the entry can't be located.
+  Future<void> openExistingSaved() async {
+    final key = _sourceKey();
+    final state = ref.read(appStateProvider);
+    HistoryEntry? entry;
+    if (key != null) {
+      for (final h in state.history) {
+        if (h.sourceKey == key) {
+          entry = h;
+          break;
+        }
+      }
+    }
+    if (entry == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You can open it from your History.')),
+        );
+      }
+      return;
+    }
+    await ref.read(galleryServiceProvider).open(entry);
   }
 
   /// Dedupe key for the current analysis (host|url), or null when unknown.
