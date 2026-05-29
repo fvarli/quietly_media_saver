@@ -12,6 +12,18 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 7B — Real OS gallery integration (Android-first)
+
+`OsGalleryService` now inserts saved sample media into the **device gallery**
+(`gal`, Android-first) alongside the local app-documents copy, opens files with
+`open_filex`, and shares via `share_plus`. Write/space failures map to the
+"Not enough space" (`storage`) error; `remove` deletes the local copy (the
+gallery copy is user-managed). Android manifest gains pre-Q
+`WRITE_EXTERNAL_STORAGE`; iOS gains `NSPhotoLibraryAddUsageDescription` (add-only
+permission wiring deferred). Still synthetic bytes — **no real download/scraping**;
+tests fake the gallery so nothing platform-specific runs. See
+`docs/ARCHITECTURE.md` → "Pass 7B".
+
 ## Build pass 7A — Gallery / file-save boundary
 
 The gallery service is now real: `LocalGalleryService` (`lib/services/gallery/`)

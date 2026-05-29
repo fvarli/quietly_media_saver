@@ -1,10 +1,11 @@
-// Quietly — widget + state + token tests (passes 1–7A).
+// Quietly — widget + state + token tests (passes 1–7B).
 //
 // Covers the foundation, pass-2/3/4 UI, pass-5A–D services, pass-6 analysis +
-// clipboard, and pass-7A gallery/file-save (sample save records a path, dedupe →
-// already-saved, open/share/remove via the service, JSON incl. filePath/
-// sourceKey). All platform layers are faked (no real channels); animated/
-// analyzing screens use explicit pump(Duration), not pumpAndSettle; long lazy
+// clipboard, and pass-7A/7B gallery/file-save (sample save records a path,
+// save-failure → storage error, dedupe → already-saved, open/share/remove via
+// the service, JSON incl. filePath/sourceKey). All platform layers are faked
+// (no real channels — gal/open_filex/path_provider never run in tests);
+// animated screens use explicit pump(Duration), not pumpAndSettle; long lazy
 // lists use scrollUntilVisible.
 
 import 'dart:async';
@@ -225,9 +226,13 @@ class FakeGalleryService implements GalleryService {
   int saveCalls = 0;
   HistoryEntry? lastRemoved;
   String savedPath = '/fake/quietly_media/sample.png';
+  bool failStorageFull = false;
 
   @override
   Future<String> saveSample(MediaKind kind) async {
+    if (failStorageFull) {
+      throw const GallerySaveException(storageFull: true);
+    }
     saveCalls++;
     return savedPath;
   }
@@ -1021,6 +1026,17 @@ void main() {
       download.failFirst();
       await tester.pumpAndSettle();
       expect(find.text('A file didn’t save'), findsOneWidget);
+    });
+
+    testWidgets('save write failure (no space) → storage error', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      final download = await saveAndAllow(tester);
+      flowGallery.failStorageFull = true;
+      download.completeAll();
+      await tester.pumpAndSettle();
+      expect(find.text('Not enough space'), findsOneWidget);
     });
 
     testWidgets('duplicate save → already-saved (exists)', (tester) async {

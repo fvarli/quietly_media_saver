@@ -100,9 +100,6 @@ class HistoryScreen extends ConsumerWidget {
         ref.read(appStateProvider.notifier).removeHistoryEntry(entry);
       case 'open':
         gallery.open(entry);
-        if (context.mounted) {
-          _snack(context, 'Opening in your gallery arrives soon.');
-        }
       case 'share':
         gallery.share(entry);
     }

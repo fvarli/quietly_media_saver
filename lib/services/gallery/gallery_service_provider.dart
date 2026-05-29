@@ -10,5 +10,5 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'gallery_service.dart';
 
 final galleryServiceProvider = Provider<GalleryService>(
-  (ref) => const LocalGalleryService(),
+  (ref) => const OsGalleryService(),
 );

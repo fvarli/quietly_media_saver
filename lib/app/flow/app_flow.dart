@@ -24,6 +24,7 @@ import 'package:go_router/go_router.dart';
 import '../../services/analysis/media_analysis_provider.dart';
 import '../../services/clipboard/clipboard_service_provider.dart';
 import '../../services/downloads/download_queue_provider.dart';
+import '../../services/gallery/gallery_service.dart';
 import '../../services/gallery/gallery_service_provider.dart';
 import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
@@ -222,8 +223,15 @@ class AppFlow {
     String? path;
     try {
       path = await ref.read(galleryServiceProvider).saveSample(kind);
+    } on GallerySaveException catch (e) {
+      if (!context.mounted) return;
+      if (e.storageFull) {
+        showError(AppErrorKind.storage);
+        return;
+      }
+      // Other save failure → proceed with a pathless history entry.
     } catch (_) {
-      // Save failed (e.g. storage unavailable) — proceed without a file path.
+      // Unexpected failure → proceed without a file path.
     }
     if (!context.mounted) return;
     _notifier.finishDownload(filePath: path, sourceKey: _sourceKey());

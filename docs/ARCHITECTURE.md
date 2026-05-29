@@ -425,6 +425,39 @@ already routes through `gallery.remove` (now deletes the file) + `removeHistoryE
 
 ---
 
+## Pass 7B — Real OS gallery integration (Android-first)
+
+Upgrades the save boundary from app-documents-only to **OS gallery** + real
+open, still using synthetic sample bytes.
+
+### Service — `OsGalleryService` (renamed from `LocalGalleryService`)
+- `saveSample`: writes the local app-documents copy (canonical `filePath`) — on
+  `FileSystemException` throws `GallerySaveException(storageFull: errno==28)` —
+  then **best-effort** inserts a gallery copy via `gal` (`putImage`/`putVideo`;
+  failure doesn't fail the save).
+- `open`: `open_filex` on the local path; `share`: share_plus; `remove`: deletes
+  the **local** copy (gal exposes no delete → the gallery copy is user-managed).
+- **Two-copy model**: the app-documents file is the reference for open/share/
+  remove; the gallery copy is the OS-visible artifact.
+
+### Failure mapping
+`AppFlow.finishDownload` catches `GallerySaveException`: `storageFull` →
+`showError(AppErrorKind.storage)` ("Not enough space"); other failures →
+graceful pathless history. Dedupe (`sourceKey`) unchanged.
+
+### Platform / permissions
+Reuses the existing media-permission grant. Android: `WRITE_EXTERNAL_STORAGE`
+(`maxSdkVersion=28`) added for pre-Q MediaStore; 13+ uses scoped MediaStore (no
+extra runtime grant for app-created media). iOS: `NSPhotoLibraryAddUsageDescription`
+added; add-only permission wiring deferred (Android-first).
+
+### Tests
+`gal`/`open_filex`/`path_provider` never run under test — the gallery is faked
+everywhere a save is reached. New: `FakeGalleryService.failStorageFull` →
+save-write failure surfaces the `storage` error.
+
+---
+
 ## Layering
 
 ```
