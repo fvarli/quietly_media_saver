@@ -493,6 +493,33 @@ fallback). Everything else (notifier, screen, `ref.listen` terminal handling,
 
 ---
 
+## Pass 8B — Downloaded bytes → gallery save
+
+Connects the download output to the gallery so the **downloaded file** (not
+synthetic bytes) becomes the saved `HistoryEntry.filePath`.
+
+- **`DownloadItem.localPath`** (the completed temp-file path).
+  `HttpDownloadQueueService` writes each completed item to a real file under an
+  injectable cache dir (`cacheDirProvider`, default `getTemporaryDirectory`):
+  the HTTP path accumulates the streamed bytes and writes on done; the fallback
+  writes synthetic `_sampleBytes` (moved here from the gallery). Small files are
+  written synchronously (streaming-to-disk is a refinement).
+- **`GalleryService.saveSample(kind)` → `saveFile(kind, sourcePath)`**:
+  `OsGalleryService` copies the downloaded file into app documents + best-effort
+  `gal` insert (storageFull→`AppErrorKind.storage`).
+- **`AppFlow.finishDownload`** reads the completed queue items and
+  `saveFile`s each (records the first saved path on the entry; all land in the
+  gallery). It only runs on `isComplete`, so a failed download imports nothing.
+- **Tests**: `FakeDownloadQueueService.completeAll` stamps a `localPath`;
+  `FakeGalleryService.saveFile` records `lastSourcePath`. New: HTTP/fallback
+  write a real temp file (injected temp dir); `finishDownload` calls `saveFile`
+  with the downloaded path; failed download → `saveCalls == 0`. No real network/
+  gallery.
+- Multi-item: every file lands in the gallery but only the first path is recorded
+  on the single history entry (per-entry multi-file refs are a follow-up).
+
+---
+
 ## Layering
 
 ```

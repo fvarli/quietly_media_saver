@@ -225,17 +225,23 @@ class AppFlow {
     context.pushReplacementNamed(AppRoutes.downloading);
   }
 
-  /// Download finished → save a (sample) local file via the gallery service,
-  /// record it on the history entry, then → success. File I/O lives in the
-  /// service; the notifier only stores the resulting path/dedupe key.
+  /// Download finished → import each downloaded file into the gallery via the
+  /// gallery service, record the first saved path on the history entry, then →
+  /// success. File I/O lives in the services; the notifier only stores the
+  /// resulting path / dedupe key.
   Future<void> finishDownload() async {
-    final state = ref.read(appStateProvider);
-    final kind = state.lastSaved.isNotEmpty
-        ? state.lastSaved.first
-        : MediaKind.video;
-    String? path;
+    final completed = ref
+        .read(downloadQueueServiceProvider)
+        .current
+        .items
+        .where((i) => i.isComplete && i.localPath != null);
+    final gallery = ref.read(galleryServiceProvider);
+    String? savedPath;
     try {
-      path = await ref.read(galleryServiceProvider).saveSample(kind);
+      for (final item in completed) {
+        final path = await gallery.saveFile(item.kind, item.localPath!);
+        savedPath ??= path; // record the first; all land in the gallery
+      }
     } on GallerySaveException catch (e) {
       if (!context.mounted) return;
       if (e.storageFull) {
@@ -247,7 +253,7 @@ class AppFlow {
       // Unexpected failure → proceed without a file path.
     }
     if (!context.mounted) return;
-    _notifier.finishDownload(filePath: path, sourceKey: _sourceKey());
+    _notifier.finishDownload(filePath: savedPath, sourceKey: _sourceKey());
     context.pushReplacementNamed(AppRoutes.success);
   }
 

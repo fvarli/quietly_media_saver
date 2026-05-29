@@ -15,7 +15,6 @@
 // ─────────────────────────────────────────────────────────────
 
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:gal/gal.dart';
 import 'package:open_filex/open_filex.dart';
@@ -36,9 +35,10 @@ class GallerySaveException implements Exception {
 }
 
 abstract interface class GalleryService {
-  /// Write a sample local file for [kind], insert it into the OS gallery, and
-  /// return the local file path. Throws [GallerySaveException] on write failure.
-  Future<String> saveSample(MediaKind kind);
+  /// Import a downloaded file at [sourcePath] for [kind]: copy it into app
+  /// storage, insert a copy into the OS gallery, and return the saved local
+  /// path. Throws [GallerySaveException] on write failure (e.g. no space).
+  Future<String> saveFile(MediaKind kind, String sourcePath);
 
   /// Open the saved item with the OS default app.
   Future<void> open(HistoryEntry entry);
@@ -50,14 +50,14 @@ abstract interface class GalleryService {
   Future<void> remove(HistoryEntry entry);
 }
 
-/// Saves synthetic sample bytes to app storage + the device gallery.
+/// Imports downloaded files into app storage + the device gallery.
 class OsGalleryService implements GalleryService {
   const OsGalleryService();
 
   static const _dirName = 'quietly_media';
 
   @override
-  Future<String> saveSample(MediaKind kind) async {
+  Future<String> saveFile(MediaKind kind, String sourcePath) async {
     final isVideo = kind == MediaKind.video;
     final ext = isVideo ? 'mp4' : 'png';
     final String path;
@@ -65,11 +65,11 @@ class OsGalleryService implements GalleryService {
       final docs = await getApplicationDocumentsDirectory();
       final dir = Directory('${docs.path}/$_dirName');
       if (!await dir.exists()) await dir.create(recursive: true);
-      final file = File(
+      final dest = File(
         '${dir.path}/${DateTime.now().microsecondsSinceEpoch}.$ext',
       );
-      await file.writeAsBytes(_sampleBytes(kind));
-      path = file.path;
+      await File(sourcePath).copy(dest.path);
+      path = dest.path;
     } on FileSystemException catch (e) {
       // errno 28 == ENOSPC (no space left on device).
       throw GallerySaveException(storageFull: e.osError?.errorCode == 28);
@@ -124,25 +124,5 @@ class OsGalleryService implements GalleryService {
     } catch (_) {
       // Already gone / not removable — ignore.
     }
-  }
-
-  /// Synthetic, legally-safe placeholder bytes (NOT downloaded content):
-  /// a 1×1 transparent PNG for images; a tiny labelled blob for video.
-  Uint8List _sampleBytes(MediaKind kind) {
-    if (kind == MediaKind.video) {
-      return Uint8List.fromList('QUIETLY_SAMPLE_MEDIA'.codeUnits);
-    }
-    // Minimal 1×1 transparent PNG.
-    return Uint8List.fromList(const [
-      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
-      0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-      0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
-      0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
-      0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-      0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
-      0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
-      0x42, 0x60, 0x82,
-    ]);
   }
 }

@@ -12,6 +12,17 @@ not supported, by design.
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
 
+## Build pass 8B — Downloaded bytes → gallery save
+
+Connects the download queue to the gallery: completed downloads now write a real
+local file (`DownloadItem.localPath`; `HttpDownloadQueueService` writes the
+streamed bytes, or synthetic fallback bytes, to a temp dir), and
+`GalleryService.saveFile(kind, sourcePath)` imports that file into app documents
++ the OS gallery — so the saved `HistoryEntry.filePath` is the downloaded file,
+not synthetic bytes. `finishDownload` only imports on success (a failed download
+saves nothing); out-of-space → "Not enough space". Tests stay fake-/temp-dir-only
+(no real network or platform gallery). See `docs/ARCHITECTURE.md` → "Pass 8B".
+
 ## Build pass 8A — Real HTTP download/queue service
 
 The simulated in-memory queue is replaced by `HttpDownloadQueueService`

@@ -1,14 +1,16 @@
-// Quietly — widget + state + token tests (passes 1–8A).
+// Quietly — widget + state + token tests (passes 1–8B).
 //
 // Covers the foundation, pass-2/3/4 UI, pass-5A–D services, pass-6 analysis +
-// clipboard, pass-7A/7B gallery/file-save, and pass-8A HTTP downloads (sample-
-// fallback ramp + real streamed download via http MockClient, failure mapping).
-// All platform layers are faked — no real network/channels (http MockClient is
-// in-memory; gal/open_filex/path_provider never run); animated screens use
-// explicit pump(Duration), not pumpAndSettle; long lazy lists use
+// clipboard, pass-7A/7B gallery/file-save, pass-8A HTTP downloads, and pass-8B
+// download→gallery wiring (downloads write a real temp file; finishDownload
+// imports it via GalleryService.saveFile; failed downloads don't save). All
+// platform layers are faked — no real network/channels (http MockClient is
+// in-memory; gal/open_filex never run; downloads write to injected temp dirs).
+// Animated screens use explicit pump(Duration); long lazy lists use
 // scrollUntilVisible.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -161,11 +163,15 @@ class FakeDownloadQueueService implements DownloadQueueService {
     _set(_map(DownloadItemStatus.failed, DownloadItemStatus.downloading));
   }
 
-  /// Test helper: mark every item complete.
+  /// Test helper: mark every item complete (with a fake downloaded path).
   void completeAll() => _set(
     DownloadQueueState([
       for (final i in _state.items)
-        i.copyWith(progress: 1, status: DownloadItemStatus.completed),
+        i.copyWith(
+          progress: 1,
+          status: DownloadItemStatus.completed,
+          localPath: '/fake/dl/${i.id}.bin',
+        ),
     ]),
   );
 
@@ -229,15 +235,17 @@ class FakeGalleryService implements GalleryService {
   int removeCalls = 0;
   int saveCalls = 0;
   HistoryEntry? lastRemoved;
+  String? lastSourcePath;
   String savedPath = '/fake/quietly_media/sample.png';
   bool failStorageFull = false;
 
   @override
-  Future<String> saveSample(MediaKind kind) async {
+  Future<String> saveFile(MediaKind kind, String sourcePath) async {
     if (failStorageFull) {
       throw const GallerySaveException(storageFull: true);
     }
     saveCalls++;
+    lastSourcePath = sourcePath;
     return savedPath;
   }
 
@@ -284,6 +292,16 @@ Future<void> _pumpScreen(
       child: MaterialApp(home: child),
     ),
   );
+}
+
+/// A real temp directory for download writes (no path_provider channel),
+/// cleaned up after the test.
+Future<Directory> Function() _tempCacheProvider() {
+  final dir = Directory.systemTemp.createTempSync('quietly_8b');
+  addTearDown(() {
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+  return () async => dir;
 }
 
 /// Use a phone-sized viewport for full-screen tests.
@@ -613,6 +631,7 @@ void main() {
     }) => HttpDownloadQueueService(
       client: MockClient((_) async => http.Response('', 404)),
       failItemIds: failItemIds,
+      cacheDirProvider: _tempCacheProvider(),
     );
     const videoReq = [DownloadRequest(MediaKind.video)];
 
@@ -668,6 +687,17 @@ void main() {
       expect(svc.current.hasFailure, isTrue);
       svc.dispose();
     });
+
+    testWidgets('completion writes a local file', (tester) async {
+      await tester.pumpWidget(const SizedBox());
+      final svc = makeService();
+      svc.start(videoReq);
+      await tester.pump(const Duration(seconds: 2)); // ramp to completion
+      final path = svc.current.items.first.localPath;
+      expect(path, isNotNull);
+      expect(File(path!).existsSync(), isTrue);
+      svc.dispose();
+    });
   });
 
   group('HttpDownloadQueueService — real HTTP (MockClient)', () {
@@ -680,19 +710,29 @@ void main() {
         ]);
         return http.StreamedResponse(body, 200, contentLength: 100);
       });
-      final svc = HttpDownloadQueueService(client: client);
+      final svc = HttpDownloadQueueService(
+        client: client,
+        cacheDirProvider: _tempCacheProvider(),
+      );
       svc.start(const [
         DownloadRequest(MediaKind.video, url: 'https://demo.example.com/a.mp4'),
       ]);
       await svc.updates.firstWhere((s) => s.isComplete || s.hasFailure);
       expect(svc.current.isComplete, isTrue);
       expect(svc.current.overallProgress, 1);
+      // Downloaded bytes were written to a real local file.
+      final path = svc.current.items.first.localPath;
+      expect(path, isNotNull);
+      expect(File(path!).existsSync(), isTrue);
       svc.dispose();
     });
 
     test('non-200 response → failure', () async {
       final client = MockClient((_) async => http.Response('nope', 404));
-      final svc = HttpDownloadQueueService(client: client);
+      final svc = HttpDownloadQueueService(
+        client: client,
+        cacheDirProvider: _tempCacheProvider(),
+      );
       svc.start(const [
         DownloadRequest(MediaKind.image, url: 'https://demo.example.com/x.jpg'),
       ]);
@@ -1046,7 +1086,7 @@ void main() {
       expect(find.text('Saving video…'), findsOneWidget);
     });
 
-    testWidgets('queue completion → Success + saves a file path', (
+    testWidgets('completion imports the downloaded file → Success', (
       tester,
     ) async {
       _usePhoneViewport(tester);
@@ -1055,20 +1095,24 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Saved to gallery'), findsOneWidget);
 
-      // The gallery service saved a sample file and the new entry records it.
+      // saveFile was called with the downloaded path; the entry records the
+      // returned saved path.
       expect(flowGallery.saveCalls, 1);
+      expect(flowGallery.lastSourcePath, '/fake/dl/item_0.bin');
       expect(
         flowContainer.read(appStateProvider).history.first.filePath,
         flowGallery.savedPath,
       );
     });
 
-    testWidgets('queue failure → queueItemFailed error', (tester) async {
+    testWidgets('queue failure → error and no file is saved', (tester) async {
       _usePhoneViewport(tester);
       final download = await saveAndAllow(tester);
       download.failFirst();
       await tester.pumpAndSettle();
       expect(find.text('A file didn’t save'), findsOneWidget);
+      // finishDownload never runs on failure → nothing imported.
+      expect(flowGallery.saveCalls, 0);
     });
 
     testWidgets('save write failure (no space) → storage error', (

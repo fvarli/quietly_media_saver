@@ -41,6 +41,7 @@ class DownloadItem {
     required this.meta,
     this.progress = 0,
     this.status = DownloadItemStatus.queued,
+    this.localPath,
   });
 
   final String id;
@@ -52,18 +53,25 @@ class DownloadItem {
   final double progress;
   final DownloadItemStatus status;
 
+  /// Local temp-file path of the completed download (null until completed).
+  final String? localPath;
+
   bool get isComplete => status == DownloadItemStatus.completed;
   bool get isFailed => status == DownloadItemStatus.failed;
 
-  DownloadItem copyWith({double? progress, DownloadItemStatus? status}) =>
-      DownloadItem(
-        id: id,
-        kind: kind,
-        name: name,
-        meta: meta,
-        progress: progress ?? this.progress,
-        status: status ?? this.status,
-      );
+  DownloadItem copyWith({
+    double? progress,
+    DownloadItemStatus? status,
+    String? localPath,
+  }) => DownloadItem(
+    id: id,
+    kind: kind,
+    name: name,
+    meta: meta,
+    progress: progress ?? this.progress,
+    status: status ?? this.status,
+    localPath: localPath ?? this.localPath,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -73,10 +81,12 @@ class DownloadItem {
       other.name == name &&
       other.meta == meta &&
       other.progress == progress &&
-      other.status == status;
+      other.status == status &&
+      other.localPath == localPath;
 
   @override
-  int get hashCode => Object.hash(id, kind, name, meta, progress, status);
+  int get hashCode =>
+      Object.hash(id, kind, name, meta, progress, status, localPath);
 }
 
 @immutable
