@@ -11,6 +11,9 @@ not supported, by design.
   authoritative product/design spec (screens, components, tokens, state machine).
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — how the Flutter app is
   structured and why (layering + key decisions). **Start here for the codebase.**
+- **[`docs/release/`](docs/release/README.md)** — Google Play release identity,
+  privacy policy, Data Safety, store listing, content rating, and the closed-testing
+  checklist. **Start here for publishing.**
 
 ## Build pass 10 — Release-readiness stabilization
 
