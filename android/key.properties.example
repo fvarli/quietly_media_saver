@@ -1,0 +1,16 @@
+# Quietly — Android release signing template.
+#
+# Copy this file to  android/key.properties  and fill in the real values.
+#   cp android/key.properties.example android/key.properties
+#
+# android/key.properties is GITIGNORED — never commit it, and never commit the
+# .jks/.keystore file. Keep the keystore and these passwords backed up securely;
+# losing them (without Play App Signing) means you can no longer update the app.
+#
+# Note: paths are NOT shell-expanded — use an absolute path for storeFile
+# (no "~"). The keystore lives outside the repo.
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=quietly_upload
+storeFile=/home/fvarli/upload-keystores/quietly_upload.jks
