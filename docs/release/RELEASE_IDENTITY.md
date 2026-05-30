@@ -1,29 +1,20 @@
 # Quietly — Release Identity
 
-> **Status:** Locked (store title provisional) · **Last updated:** 2026-05-29 · **Owner:** Lunexa
+> **Status:** Locked · **Last updated:** 2026-05-30 · **Owner:** Lunexa
 > The permanent and near-permanent identity decisions for Quietly's Play release.
 
 ## Locked decisions
 
 | Field | Value | Notes |
 |---|---|---|
+| **Store title** | **`Quietly – Media Saver`** | Locked (21 chars); brand + clear function |
 | **applicationId / namespace** | `com.lunexa.quietly` | **Permanent** after first publish |
 | **Publisher / developer** | **Lunexa** (umbrella) | Not "Lunexa Games" — Quietly is a utility |
 | **Category** | **Tools** | Most accurate; lowest review friction |
+| **Website / contact** | `https://uselunexa.com` | No dedicated product page assumed |
 | **Privacy URL** | `https://uselunexa.com/privacy/quietly` | + `/tr/privacy/quietly`, `/es/privacy/quietly` |
 | **Support email** | `hello@uselunexa.com` | Ecosystem-wide, monitored |
 | **Versioning** | `versionName` semver + monotonic `versionCode` | Start `1.0.0+1`; bump `+N` every upload |
-
-## Store title — PROVISIONAL (one decision remaining)
-
-| Option | Chars | When to pick |
-|---|---:|---|
-| **`Quietly: Save Public Media`** | 26 | **Recommended for first submission** — "Public" in-title pre-empts the copyright concern (max approval probability) |
-| `Quietly – Media Saver` | 21 | Best long-term brand + ASO balance; sensible rename target post-approval |
-
-Not recommended as the store title: `Quietly` alone (generic, collision-prone,
-weak ASO) or `Quietly by Lunexa` (wastes ASO; publisher already shown beneath the
-title).
 
 ## Rationale
 

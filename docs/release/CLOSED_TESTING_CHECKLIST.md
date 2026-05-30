@@ -19,7 +19,7 @@
 - [ ] Store **assets**: 512×512 icon, 1024×500 feature graphic, 4–8 phone screenshots (no platform logos / no "download from X").
 - [ ] **Adaptive launcher icon** (fg/bg) via `flutter_launcher_icons`; brand-aligned with Lunexa.
 - [ ] App **name unified** to "Quietly" across Android + iOS.
-- [ ] **Support email** `hello@uselunexa.com` + **website** `uselunexa.com/quietly` live and in the listing.
+- [ ] **Support email** `hello@uselunexa.com` + **website** `https://uselunexa.com` live and in the listing.
 - [ ] In-app **Privacy policy** wired; Acceptable-use/Terms link added.
 - [ ] `LICENSE` added; quick legal pass on positioning copy.
 - [ ] TR + ES privacy/listing translations published (if launching localized).

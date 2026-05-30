@@ -1,12 +1,11 @@
 # Quietly — Play Store Listing Copy
 
-> **Status:** Drafted (title provisional) · **Last updated:** 2026-05-29 · **Owner:** Lunexa
+> **Status:** Locked · **Last updated:** 2026-05-30 · **Owner:** Lunexa
 > Rights-aware, utility-framed, and free of any platform name/logo or "downloader"
-> language. Uses "Quietly" while the marketing title is finalized.
+> language.
 
-## Title (≤30 chars) — provisional
-- **`Quietly: Save Public Media`** (26) — recommended for first submission (max approval)
-- `Quietly – Media Saver` (21) — best long-term ASO/brand
+## Title (≤30 chars) — locked
+**`Quietly – Media Saver`** (21 chars)
 
 ## Short description (≤80 chars)
 > **Calmly save public media you have the rights to — private, no ads, no tracking.**
@@ -67,14 +66,14 @@ no tracking, no account.
 ## Play Console field cheat-sheet
 | Field | Value |
 |---|---|
-| App name | *(provisional — pick a title from RELEASE_IDENTITY.md)* |
+| App name | Quietly – Media Saver |
 | Short description | "Calmly save public media you have the rights to — private, no ads, no tracking." |
 | Full description | as above |
 | Category | Tools |
 | Tags | utility / file-management-adjacent — **avoid** any "video downloader" tag |
 | Contact email | hello@uselunexa.com |
 | Privacy policy | https://uselunexa.com/privacy/quietly |
-| Website (optional) | https://uselunexa.com/quietly |
+| Website (optional) | https://uselunexa.com |
 
 ## Policy guardrails (must hold for assets too)
 - **No** platform names or logos anywhere (title, description, screenshots, feature graphic).

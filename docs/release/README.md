@@ -1,6 +1,6 @@
 # Quietly — Release documentation
 
-> **Status:** Active · **Last updated:** 2026-05-29 · **Owner:** Lunexa
+> **Status:** Active · **Last updated:** 2026-05-30 · **Owner:** Lunexa
 > Single source of truth for Quietly's Google Play release identity, policy, and
 > store materials. The hosted privacy policy and Play Console listing are mirrored
 > *from* these files.
@@ -13,12 +13,14 @@ social-platform extraction, no private/DRM access, no account, no ads, no tracki
 
 | Doc | Purpose | Status |
 |---|---|---|
-| [RELEASE_IDENTITY.md](RELEASE_IDENTITY.md) | Locked app id, publisher, category, URLs, title | 🔒 Locked (title provisional) |
-| [PERMISSIONS_REVIEW.md](PERMISSIONS_REVIEW.md) | Per-permission justification + target set + Q3 actions | ✅ Reviewed |
+| [RELEASE_IDENTITY.md](RELEASE_IDENTITY.md) | Locked app id, publisher, category, URLs, title | 🔒 Locked |
+| [PERMISSIONS_REVIEW.md](PERMISSIONS_REVIEW.md) | Per-permission justification + target set + Q3 actions | ✅ Reviewed (Q3B/Q3C done) |
 | [DATA_SAFETY.md](DATA_SAFETY.md) | Play Data Safety questionnaire answers | ✅ Drafted |
 | [PRIVACY_POLICY.md](PRIVACY_POLICY.md) | Canonical privacy policy (source of truth) | ✅ Draft (2 publish placeholders) |
-| [STORE_LISTING.md](STORE_LISTING.md) | Title options, descriptions, "What's new" | ✅ Drafted |
+| [STORE_LISTING.md](STORE_LISTING.md) | Locked title, descriptions, "What's new" | ✅ Locked |
 | [CONTENT_RATING.md](CONTENT_RATING.md) | IARC answers + expected rating | ✅ Drafted |
+| [PLAY_CONSOLE_SUBMISSION.md](PLAY_CONSOLE_SUBMISSION.md) | Copy-paste Play Console submission sheet (15 sections) | ✅ Ready |
+| [CLOSED_TESTING_OPS.md](CLOSED_TESTING_OPS.md) | Closed-testing rollout + tester/email/feedback/bug templates + production-access answers | ✅ Ready |
 | [CLOSED_TESTING_CHECKLIST.md](CLOSED_TESTING_CHECKLIST.md) | Release go/no-go gate | ✅ Active |
 
 Related: device/functional QA lives in [../QA_CHECKLIST.md](../QA_CHECKLIST.md);
@@ -31,9 +33,10 @@ architecture in [../ARCHITECTURE.md](../ARCHITECTURE.md).
 | applicationId | `com.lunexa.quietly` |
 | Publisher | Lunexa |
 | Category | Tools |
+| Website / contact | https://uselunexa.com |
 | Privacy URL | https://uselunexa.com/privacy/quietly (+ `/tr/`, `/es/`) |
 | Support email | hello@uselunexa.com |
-| Store title | **Provisional** — see RELEASE_IDENTITY.md |
+| Store title | **Quietly – Media Saver** (locked) |
 
 ## How to use
 - **Privacy policy:** publish [PRIVACY_POLICY.md](PRIVACY_POLICY.md) to
