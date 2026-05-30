@@ -77,6 +77,12 @@ Captions (storyboard, per screen 01→06):
 - **tr:** Herkese açık medyayı sakince kaydedin. · Yalnızca herkese açık medya — haklara saygılı. · Neyin olduğunu görün, sonra kaydedin. · Doğrudan galerinize. · Kaydettiğiniz her şey tek bir sakin yerde. · Reklam yok. Takip yok. Hesap yok.
 - **es:** Guarda medios públicos, con calma. · Solo medios públicos: se respetan los derechos. · Mira qué hay y luego guarda. · Directo a tu galería. · Todo lo que guardaste, en un solo lugar tranquilo. · Sin anuncios. Sin rastreo. Sin cuenta.
 
+> **Known limitation:** on `05-history`, the screen *chrome* is fully localized, but
+> the seeded demo entry titles ("Video clip", "Image", "3 images") render in English
+> in the tr/es shots — they're data-layer strings produced without a `BuildContext`
+> (see [PRODUCT_POSITIONING.md](../release/PRODUCT_POSITIONING.md) / the l10n notes).
+> Acceptable for now; tracked as a follow-up, not fixed in this store-assets phase.
+
 > `test/store_screenshots.dart` (headless) remains as a layout preview only (text
 > renders as boxes); the integration_test path is the real-screenshot route.
 

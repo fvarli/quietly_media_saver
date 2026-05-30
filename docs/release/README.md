@@ -51,11 +51,15 @@ architecture in [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Store assets
 See [../store-assets/README.md](../store-assets/README.md). **Done:** adaptive +
-legacy launcher icon, **512×512 Play icon**, **1024×500 feature graphic**, and **6
-phone screenshots (1080×2400)**. **Pending (production only):** replace the
-**interim** icon with the final Lunexa brand mark, then regenerate the derived art.
+legacy launcher icon, **512×512 Play icon**, **1024×500 feature graphic**, and **18
+localized phone screenshots (en/tr/es, 1080×2400)**. **Pending (production only):**
+replace the **interim** icon with the final Lunexa brand mark, then regenerate the
+derived art.
 
-## Deferred (not yet created)
-- `PRIVACY_POLICY.tr.md` / `PRIVACY_POLICY.es.md`, `STORE_LISTING.tr.md` /
-  `STORE_LISTING.es.md` — localized copies (need translations).
-- Feature graphic + screenshots (see store-assets) — owner-generated art.
+## Deferred / follow-ups
+- `PRIVACY_POLICY.tr.md` / `PRIVACY_POLICY.es.md` — localized privacy policy
+  (need translations; use existing live pages if available).
+- **Localize History entry titles** — data-layer strings ("Video clip", "Image",
+  "3 images") render in English in the tr/es history screenshots; small follow-up
+  in the state layer (no `BuildContext` today). Out of scope for the store-assets phase.
+- Final Lunexa brand icon (production only), then regenerate derived art (see store-assets).
