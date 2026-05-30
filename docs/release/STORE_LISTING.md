@@ -2,7 +2,8 @@
 
 > **Status:** Locked · **Last updated:** 2026-05-30 · **Owner:** Lunexa
 > Rights-aware, utility-framed, and free of any platform name/logo or "downloader"
-> language.
+> language. This copy must obey [PRODUCT_POSITIONING.md](PRODUCT_POSITIONING.md)
+> ("Media Saver", not "Downloader"; platform-neutral).
 
 ## Title (≤30 chars) — locked
 **`Quietly – Media Saver`** (21 chars)

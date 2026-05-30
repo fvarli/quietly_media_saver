@@ -14,6 +14,7 @@ social-platform extraction, no private/DRM access, no account, no ads, no tracki
 | Doc | Purpose | Status |
 |---|---|---|
 | [RELEASE_IDENTITY.md](RELEASE_IDENTITY.md) | Locked app id, publisher, category, URLs, title | 🔒 Locked |
+| [PRODUCT_POSITIONING.md](PRODUCT_POSITIONING.md) | Permanent positioning lock — "Media Saver", not "Downloader"; what to avoid; risk model; roadmap | 🔒 Locked |
 | [PERMISSIONS_REVIEW.md](PERMISSIONS_REVIEW.md) | Per-permission justification + target set + Q3 actions | ✅ Reviewed (Q3B/Q3C done) |
 | [DATA_SAFETY.md](DATA_SAFETY.md) | Play Data Safety questionnaire answers | ✅ Drafted |
 | [PRIVACY_POLICY.md](PRIVACY_POLICY.md) | Canonical privacy policy (source of truth) | ✅ Draft (2 publish placeholders) |

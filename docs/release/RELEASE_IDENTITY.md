@@ -2,6 +2,8 @@
 
 > **Status:** Locked · **Last updated:** 2026-05-30 · **Owner:** Lunexa
 > The permanent and near-permanent identity decisions for Quietly's Play release.
+> Positioning (why "Media Saver", not "Downloader") is governed by
+> [PRODUCT_POSITIONING.md](PRODUCT_POSITIONING.md).
 
 ## Locked decisions
 
