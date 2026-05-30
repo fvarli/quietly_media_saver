@@ -356,7 +356,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Quietly'), findsOneWidget);
-      expect(find.text('Paste a link to get started.'), findsOneWidget);
+      expect(find.text('Save public media to your gallery'), findsOneWidget);
       // Primary CTA (the clipboard card only appears when a URL is detected).
       expect(find.text('Paste link'), findsOneWidget);
       // Rights-aware positioning present on Home.
@@ -1232,7 +1232,7 @@ void main() {
       await pumpAtError(tester, AppErrorKind.protected);
       await tester.tap(find.text('Try another link'));
       await tester.pumpAndSettle();
-      expect(find.text('Paste a link to get started.'), findsOneWidget);
+      expect(find.text('Save public media to your gallery'), findsOneWidget);
     });
 
     testWidgets('permanently-denied Open settings calls the service', (
@@ -1447,7 +1447,7 @@ void main() {
       final download = await saveAndAllow(tester);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      expect(find.text('Paste a link to get started.'), findsOneWidget);
+      expect(find.text('Save public media to your gallery'), findsOneWidget);
       expect(download.cancelCalls, 1);
     });
 
@@ -1725,7 +1725,7 @@ void main() {
     });
   });
 
-  group('First-run acceptable-use gate', () {
+  group('First-run onboarding', () {
     late FakePreferencesService gatePrefs;
 
     Future<ProviderContainer> pumpApp(
@@ -1762,27 +1762,58 @@ void main() {
       return container;
     }
 
-    testWidgets('first run shows the gate; acknowledging persists', (
+    testWidgets(
+      'first run shows onboarding; Get started completes + persists',
+      (tester) async {
+        _usePhoneViewport(tester);
+        final container = await pumpApp(tester, acknowledged: false);
+        // Value-first step is shown.
+        expect(
+          find.text('Save public photos & videos to your gallery'),
+          findsOneWidget,
+        );
+        // Advance through the 3 steps to "Get started".
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        expect(find.text('How it works'), findsOneWidget);
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        expect(find.text('Private by design'), findsOneWidget);
+        await tester.tap(find.text('Get started'));
+        await tester.pumpAndSettle();
+
+        // Lands on the (redesigned) Home; completion persisted.
+        expect(find.text('Save public media to your gallery'), findsOneWidget);
+        expect(container.read(appStateProvider).firstRunAcknowledged, isTrue);
+        expect(gatePrefs.saved?.firstRunAcknowledged, isTrue);
+      },
+    );
+
+    testWidgets('Skip completes onboarding + persists', (tester) async {
+      _usePhoneViewport(tester);
+      final container = await pumpApp(tester, acknowledged: false);
+      expect(
+        find.text('Save public photos & videos to your gallery'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Save public media to your gallery'), findsOneWidget);
+      expect(container.read(appStateProvider).firstRunAcknowledged, isTrue);
+      expect(gatePrefs.saved?.firstRunAcknowledged, isTrue);
+    });
+
+    testWidgets('returning (acknowledged) user sees no onboarding', (
       tester,
     ) async {
       _usePhoneViewport(tester);
-      final container = await pumpApp(tester, acknowledged: false);
-      expect(find.text('A quick note before you start'), findsOneWidget);
-      expect(find.textContaining('public media only'), findsOneWidget);
-
-      await tester.tap(find.text('I understand'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('A quick note before you start'), findsNothing);
-      expect(container.read(appStateProvider).firstRunAcknowledged, isTrue);
-      expect(gatePrefs.saved?.firstRunAcknowledged, isTrue); // persisted
-    });
-
-    testWidgets('returning (acknowledged) user sees no gate', (tester) async {
-      _usePhoneViewport(tester);
       await pumpApp(tester, acknowledged: true);
-      expect(find.text('A quick note before you start'), findsNothing);
-      expect(find.text('Paste a link to get started.'), findsOneWidget);
+      expect(
+        find.text('Save public photos & videos to your gallery'),
+        findsNothing,
+      );
+      expect(find.text('Save public media to your gallery'), findsOneWidget);
     });
   });
 

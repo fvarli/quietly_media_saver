@@ -24,18 +24,47 @@ import '../../features/downloading/downloading_screen.dart';
 import '../../features/error/error_screen.dart';
 import '../../features/history/history_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/result/result_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/success/success_screen.dart';
+import '../../state/app_state.dart';
+import '../../state/app_state_provider.dart';
 import 'app_routes.dart';
 
-/// Provides the app's [GoRouter]. Kept in a provider so future redirect guards
-/// (e.g. permission gating) can read other providers.
+/// Provides the app's [GoRouter]. The first-run redirect routes new users to
+/// onboarding; a [ValueNotifier] bridged to the first-run state re-evaluates the
+/// redirect when onboarding completes.
 final routerProvider = Provider<GoRouter>((ref) {
+  // Re-run the redirect whenever the first-run gate condition changes.
+  final refresh = ValueNotifier<int>(0);
+  ref.listen<bool>(
+    appStateProvider.select(
+      (AppState s) => s.firstRunResolved && !s.firstRunAcknowledged,
+    ),
+    (_, _) => refresh.value++,
+  );
+  ref.onDispose(refresh.dispose);
+
   return GoRouter(
     initialLocation: AppRoutes.homePath,
     debugLogDiagnostics: false,
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final s = ref.read(appStateProvider);
+      // Only gate once prefs have resolved (fail open if storage is unavailable).
+      final needsOnboarding = s.firstRunResolved && !s.firstRunAcknowledged;
+      final atOnboarding = state.matchedLocation == AppRoutes.onboardingPath;
+      if (needsOnboarding && !atOnboarding) return AppRoutes.onboardingPath;
+      if (!needsOnboarding && atOnboarding) return AppRoutes.homePath;
+      return null;
+    },
     routes: <RouteBase>[
+      GoRoute(
+        path: AppRoutes.onboardingPath,
+        name: AppRoutes.onboarding,
+        builder: (context, state) => const OnboardingScreen(),
+      ),
       GoRoute(
         path: AppRoutes.homePath,
         name: AppRoutes.home,

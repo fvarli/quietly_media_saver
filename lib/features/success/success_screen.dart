@@ -24,6 +24,7 @@ import '../../core/widgets/q_button.dart';
 import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_pill.dart';
 import '../../core/widgets/q_top_bar.dart';
+import '../../core/widgets/trust_row.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 
@@ -88,6 +89,8 @@ class SuccessScreen extends ConsumerWidget {
                           tone: QPillTone.success,
                           icon: QIcons.check,
                         ),
+                        SizedBox(height: AppSpacing.lg),
+                        const TrustRow(),
                       ],
                     ),
                   ),

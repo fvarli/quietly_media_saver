@@ -16,6 +16,10 @@ import '../../state/models/app_enums.dart';
 abstract final class AppRoutes {
   const AppRoutes._();
 
+  // ── First-run onboarding (router-gated; not part of AppScreen) ──
+  static const String onboarding = 'onboarding';
+  static const String onboardingPath = '/onboarding';
+
   // ── Screen route names (HANDOFF §A) ───────────────────────
   static const String home = 'home';
   static const String analyzing = 'analyzing';

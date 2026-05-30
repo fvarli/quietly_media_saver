@@ -16,7 +16,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/bootstrap/app_bootstrap.dart';
 import '../../app/flow/app_flow.dart';
-import '../../app/router/sheets.dart';
 import '../../core/a11y/a11y.dart';
 import '../../core/icons/q_icons.dart';
 import '../../core/theme/tokens/app_colors.dart';
@@ -29,6 +28,8 @@ import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_section_label.dart';
 import '../../core/widgets/rights_note.dart';
+import '../../core/widgets/steps_row.dart';
+import '../../core/widgets/trust_row.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/history_entry.dart';
@@ -41,8 +42,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  bool _gateShown = false;
-
   @override
   void initState() {
     super.initState();
@@ -57,15 +56,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final state = ref.watch(appStateProvider);
     final history = state.history;
     final clipboardUrl = state.clipboardUrl;
-
-    // First-run acceptable-use gate: show once when prefs have resolved and the
-    // acknowledgement is missing. Fails open (no gate) when prefs never resolve.
-    if (state.firstRunResolved && !state.firstRunAcknowledged && !_gateShown) {
-      _gateShown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) showAcceptableUseSheet(context, ref);
-      });
-    }
 
     return Scaffold(
       body: SafeArea(
@@ -97,20 +87,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Semantics(
                             header: true,
                             child: Text(
-                              'Paste a link to get started.',
+                              'Save public media to your gallery',
                               style: AppTypography.display,
                             ),
                           ),
                           SizedBox(height: AppSpacing.md - 1),
                           ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 280),
+                            constraints: const BoxConstraints(maxWidth: 300),
                             child: Text(
-                              'We’ll check what media is publicly available for you to save.',
+                              'Paste a public link and Quietly checks it, then saves '
+                              'the photo or video to your gallery.',
                               style: AppTypography.bodySub,
                             ),
                           ),
+                          SizedBox(height: AppSpacing.xl + 2),
+                          const StepsRow(),
+                          SizedBox(height: AppSpacing.lg),
+                          const Center(child: TrustRow()),
                           if (clipboardUrl != null) ...[
-                            SizedBox(height: AppSpacing.xxl),
+                            SizedBox(height: AppSpacing.xl),
                             _ClipboardCard(
                               url: clipboardUrl,
                               onTap: () => flow.submitUrl(clipboardUrl),
@@ -123,7 +118,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-            if (history.isNotEmpty) _RecentStrip(history: history, flow: flow),
+            if (history.isNotEmpty)
+              _RecentStrip(history: history, flow: flow)
+            else
+              const _HomeZeroState(),
             Padding(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.xxl - 2,
@@ -266,6 +264,36 @@ class _CircleIconButton extends StatelessWidget {
             child: Icon(icon, size: 20, color: AppColors.sub),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// Calm zero-state shown above the CTA when there are no saves yet.
+class _HomeZeroState extends StatelessWidget {
+  const _HomeZeroState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.xxl - 2,
+        0,
+        AppSpacing.xxl - 2,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(QIcons.photo, size: 16, color: AppColors.faintText),
+          SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: Text(
+              'Nothing saved yet — your saves will appear here.',
+              style: AppTypography.caption.copyWith(color: AppColors.faintText),
+            ),
+          ),
+        ],
       ),
     );
   }

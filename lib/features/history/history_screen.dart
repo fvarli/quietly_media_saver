@@ -24,6 +24,7 @@ import '../../core/widgets/q_button.dart';
 import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_section_label.dart';
+import '../../core/widgets/steps_row.dart';
 import '../../services/gallery/gallery_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
@@ -331,9 +332,14 @@ class _EmptyHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SingleChildScrollView(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl + 6),
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.xxl + 6,
+          AppSpacing.xxl,
+          AppSpacing.xxl + 6,
+          AppSpacing.xl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -360,10 +366,12 @@ class _EmptyHistory extends StatelessWidget {
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
-              'Media you save will appear here, grouped by day.',
+              'Media you save will appear here, grouped by day. Here’s how it works:',
               textAlign: TextAlign.center,
               style: AppTypography.bodySub,
             ),
+            SizedBox(height: AppSpacing.xl),
+            const StepsList(),
             SizedBox(height: AppSpacing.xl),
             QButton(
               label: 'Paste a link',
