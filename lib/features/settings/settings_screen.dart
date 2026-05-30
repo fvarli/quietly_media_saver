@@ -22,9 +22,11 @@ import '../../core/theme/tokens/app_spacing.dart';
 import '../../core/theme/tokens/app_typography.dart';
 import '../../core/widgets/q_section_label.dart';
 import '../../core/widgets/rights_note.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
+import '../../state/models/quality_option.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -57,18 +59,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlow(context, ref);
+    final l = AppLocalizations.of(context);
     final state = ref.watch(appStateProvider);
     final notifier = ref.read(appStateProvider.notifier);
     final t = state.toggles;
 
     String permissionValue() => switch (state.permissionStatus) {
-      PermissionStatus.granted => 'Allowed',
-      PermissionStatus.denied => 'Not allowed',
-      PermissionStatus.permanentlyDenied => 'Blocked',
+      PermissionStatus.granted => l.permAllowed,
+      PermissionStatus.denied => l.permNotAllowed,
+      PermissionStatus.permanentlyDenied => l.permBlocked,
     };
 
     return Scaffold(
-      appBar: AppBar(title: Text('Settings', style: AppTypography.headline)),
+      appBar: AppBar(
+        title: Text(l.settingsTitle, style: AppTypography.headline),
+      ),
       body: SafeArea(
         top: false,
         child: ListView(
@@ -80,23 +85,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           children: [
             _SettingsGroup(
-              label: 'Downloads',
+              label: l.settingsGroupDownloads,
               children: [
                 _SettingsRow(
                   icon: QIcons.sliders,
-                  label: 'Default quality',
-                  value: state.qualityOption.label,
+                  label: l.settingDefaultQuality,
+                  value: qualityLabel(l, state.qualityOption),
                   onTap: flow.openQualitySheet,
                 ),
                 _SettingsRow(
                   icon: QIcons.help,
-                  label: 'Ask quality every time',
+                  label: l.settingAskQuality,
                   toggleValue: t.askQualityEveryTime,
                   onToggle: notifier.setAskQuality,
                 ),
                 _SettingsRow(
                   icon: QIcons.wifi,
-                  label: 'Save on Wi-Fi only',
+                  label: l.settingWifiOnly,
                   toggleValue: t.wifiOnly,
                   onToggle: notifier.setWifiOnly,
                   last: true,
@@ -104,22 +109,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
             _SettingsGroup(
-              label: 'Permissions',
+              label: l.settingsGroupPermissions,
               children: [
                 _SettingsRow(
                   icon: QIcons.photo,
-                  label: 'Save to gallery',
+                  label: l.settingSaveToGallery,
                   value: permissionValue(),
                 ),
                 if (!state.permissionGranted)
                   _SettingsRow(
                     icon: QIcons.settings,
-                    label: 'Open system settings',
+                    label: l.settingOpenSystemSettings,
                     onTap: flow.openSystemSettings,
                   ),
                 _SettingsRow(
                   icon: QIcons.bell,
-                  label: 'Download notifications',
+                  label: l.settingNotifications,
                   toggleValue: t.notify,
                   onToggle: notifier.setNotify,
                   last: true,
@@ -127,62 +132,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
             _SettingsGroup(
-              label: 'Storage',
+              label: l.settingsGroupStorage,
               children: [
                 _SettingsRow(
                   icon: QIcons.folder,
-                  label: 'Save location',
-                  value: 'Gallery',
-                  onTap: () =>
-                      _snack(context, 'Save location is fixed for now.'),
+                  label: l.settingSaveLocation,
+                  value: l.settingSaveLocationValue,
+                  onTap: () => _snack(context, l.snackSaveLocationFixed),
                 ),
                 _SettingsRow(
                   icon: QIcons.trash,
-                  label: 'Clear history',
+                  label: l.settingClearHistory,
                   danger: true,
                   last: true,
                   onTap: () {
                     notifier.clearHistory();
-                    _snack(context, 'History cleared.');
+                    _snack(context, l.snackHistoryCleared);
                   },
                 ),
               ],
             ),
             _SettingsGroup(
-              label: 'Appearance',
+              label: l.settingsGroupAppearance,
               children: [
                 _SettingsRow(
                   icon: QIcons.theme,
-                  label: 'Theme',
-                  value: 'Light',
+                  label: l.settingTheme,
+                  value: l.settingThemeValue,
                   last: true,
-                  onTap: () => _snack(context, 'Dark theme is coming.'),
+                  onTap: () => _snack(context, l.snackDarkTheme),
                 ),
               ],
             ),
             _SettingsGroup(
-              label: 'About & legal',
+              label: l.settingsGroupAboutLegal,
               children: [
                 _SettingsRow(
                   icon: QIcons.info,
-                  label: 'How Quietly works',
-                  onTap: () => _snack(context, 'Coming soon.'),
+                  label: l.settingHowItWorks,
+                  onTap: () => _snack(context, l.snackComingSoon),
                 ),
                 _SettingsRow(
                   icon: QIcons.shield,
-                  label: 'Acceptable use & your rights',
-                  onTap: () => _snack(context, 'Coming soon.'),
+                  label: l.settingAcceptableUse,
+                  onTap: () => _snack(context, l.snackComingSoon),
                 ),
                 _SettingsRow(
                   icon: QIcons.lock,
-                  label: 'Privacy policy',
-                  onTap: () => _snack(context, 'Coming soon.'),
+                  label: l.settingPrivacy,
+                  onTap: () => _snack(context, l.snackComingSoon),
                 ),
                 _SettingsRow(
                   icon: QIcons.external,
-                  label: 'Terms of service',
+                  label: l.settingTerms,
                   last: true,
-                  onTap: () => _snack(context, 'Coming soon.'),
+                  onTap: () => _snack(context, l.snackComingSoon),
                 ),
               ],
             ),
@@ -196,12 +200,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: const RightsNote(RightsCopy.statement),
             ),
             SizedBox(height: AppSpacing.lg),
-            Center(
-              child: Text(
-                'Quietly · version 1.0.0',
-                style: AppTypography.micro,
-              ),
-            ),
+            Center(child: Text(l.settingsVersion, style: AppTypography.micro)),
           ],
         ),
       ),

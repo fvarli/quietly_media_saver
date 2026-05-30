@@ -14,12 +14,14 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens/app_spacing.dart';
 import '../../core/theme/tokens/app_typography.dart';
+import '../../l10n/app_localizations.dart';
 
 class PermissionSheet extends StatelessWidget {
   const PermissionSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SafeArea(
       top: false,
       child: Padding(
@@ -36,27 +38,26 @@ class PermissionSheet extends StatelessWidget {
             Semantics(
               header: true,
               child: Text(
-                'Allow saving to your gallery',
+                l.permSheetTitle,
                 style: AppTypography.title,
                 textAlign: TextAlign.center,
               ),
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
-              'Quietly needs permission to save media to your device’s gallery. '
-              'We only write the files you choose — nothing else.',
+              l.permSheetBody,
               style: AppTypography.bodySub,
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppSpacing.xl),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Allow access'),
+              child: Text(l.permSheetAllow),
             ),
             SizedBox(height: AppSpacing.md),
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Not now'),
+              child: Text(l.permSheetNotNow),
             ),
           ],
         ),

@@ -1,14 +1,15 @@
 // ─────────────────────────────────────────────────────────────
 // Quietly — Error configuration
 //
-// Dart port of ERROR_CONFIG in docs/design-handoff/app/screens-aux.jsx.
-// One flexible ErrorScreen renders any of these six configs, selected by
-// AppState.error (AppErrorKind). Copy is preserved verbatim from the handoff —
-// it is core to the rights-aware, calm-refusal positioning. Do not soften.
+// One flexible ErrorScreen renders any of these configs, selected by
+// AppState.error (AppErrorKind). The icon/tone/ctaIcon are non-localized data;
+// the title/body/CTAs/tips are resolved from AppLocalizations via
+// [errorConfigFor]. Copy is core to the rights-aware, calm-refusal positioning.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/foundation.dart';
 
+import '../l10n/app_localizations.dart';
 import 'models/app_enums.dart';
 
 /// Visual/semantic tone for an error config, mapped to color tokens in the UI.
@@ -44,87 +45,78 @@ class ErrorConfig {
   final String? secondary;
 }
 
-/// All six error configs, keyed by [AppErrorKind] (ERROR_CONFIG parity).
-const Map<AppErrorKind, ErrorConfig> kErrorConfig = <AppErrorKind, ErrorConfig>{
-  AppErrorKind.protected: ErrorConfig(
-    icon: 'lock',
-    title: 'This content is protected',
-    body:
-        'It looks private, login-only, or rights-protected. Quietly can only save media that’s publicly available and permitted.',
-    tips: [
-      'A public version of the same post',
-      'A direct link you have rights to',
-    ],
-    cta: 'Try another link',
-    ctaIcon: 'link',
-    tone: ErrorTone.neutral,
-  ),
-  AppErrorKind.invalid: ErrorConfig(
-    icon: 'alert',
-    title: 'That doesn’t look like a link',
-    body:
-        'Make sure you’ve copied a full web address — it should start with https:// and point to a public post or page.',
-    cta: 'Paste again',
-    ctaIcon: 'paste',
-    tone: ErrorTone.warn,
-  ),
-  AppErrorKind.network: ErrorConfig(
-    icon: 'wifiOff',
-    title: 'Couldn’t reach this link',
-    body:
-        'We weren’t able to connect. Check your connection and try again — your link is still here.',
-    cta: 'Retry',
-    ctaIcon: 'refresh',
-    tone: ErrorTone.neutral,
-    secondary: 'Edit link',
-  ),
-  AppErrorKind.unsupported: ErrorConfig(
-    icon: 'globe',
-    title: 'We can’t read this source yet',
-    body:
-        'This site isn’t supported for media analysis. We only work with public sources that allow saving.',
-    cta: 'Try another link',
-    ctaIcon: 'link',
-    tone: ErrorTone.neutral,
-  ),
-  AppErrorKind.storage: ErrorConfig(
-    icon: 'folder',
-    title: 'Not enough space',
-    body:
-        'Your device is low on storage. Free up some space, or choose a smaller quality, then try again.',
-    cta: 'Choose smaller quality',
-    ctaIcon: 'sliders',
-    tone: ErrorTone.warn,
-    secondary: 'Manage storage',
-  ),
-  AppErrorKind.exists: ErrorConfig(
-    icon: 'check',
-    title: 'Already in your gallery',
-    body:
-        'You’ve already saved this exact media. You can open it, or save it again as a copy.',
-    cta: 'Open in gallery',
-    ctaIcon: 'photo',
-    tone: ErrorTone.success,
-    secondary: 'Save a copy',
-  ),
-  AppErrorKind.permissionDeniedPermanently: ErrorConfig(
-    icon: 'settings',
-    title: 'Gallery access is off',
-    body:
-        'Quietly needs permission to save to your gallery. It’s currently turned off in your system settings — turn it back on to keep saving.',
-    cta: 'Open settings',
-    ctaIcon: 'settings',
-    tone: ErrorTone.warn,
-    secondary: 'Not now',
-  ),
-  AppErrorKind.queueItemFailed: ErrorConfig(
-    icon: 'alert',
-    title: 'A file didn’t save',
-    body:
-        'Something interrupted this item. Your other saves are safe — you can try this one again.',
-    cta: 'Retry',
-    ctaIcon: 'refresh',
-    tone: ErrorTone.warn,
-    secondary: 'Skip it',
-  ),
-};
+/// Builds the localized [ErrorConfig] for [kind]. Icon/tone/ctaIcon are static;
+/// the user-facing text comes from [l].
+ErrorConfig errorConfigFor(AppLocalizations l, AppErrorKind kind) =>
+    switch (kind) {
+      AppErrorKind.protected => ErrorConfig(
+        icon: 'lock',
+        title: l.errProtectedTitle,
+        body: l.errProtectedBody,
+        tips: [l.errProtectedTip1, l.errProtectedTip2],
+        cta: l.errProtectedCta,
+        ctaIcon: 'link',
+        tone: ErrorTone.neutral,
+      ),
+      AppErrorKind.invalid => ErrorConfig(
+        icon: 'alert',
+        title: l.errInvalidTitle,
+        body: l.errInvalidBody,
+        cta: l.errInvalidCta,
+        ctaIcon: 'paste',
+        tone: ErrorTone.warn,
+      ),
+      AppErrorKind.network => ErrorConfig(
+        icon: 'wifiOff',
+        title: l.errNetworkTitle,
+        body: l.errNetworkBody,
+        cta: l.errNetworkCta,
+        ctaIcon: 'refresh',
+        tone: ErrorTone.neutral,
+        secondary: l.errNetworkSecondary,
+      ),
+      AppErrorKind.unsupported => ErrorConfig(
+        icon: 'globe',
+        title: l.errUnsupportedTitle,
+        body: l.errUnsupportedBody,
+        cta: l.errUnsupportedCta,
+        ctaIcon: 'link',
+        tone: ErrorTone.neutral,
+      ),
+      AppErrorKind.storage => ErrorConfig(
+        icon: 'folder',
+        title: l.errStorageTitle,
+        body: l.errStorageBody,
+        cta: l.errStorageCta,
+        ctaIcon: 'sliders',
+        tone: ErrorTone.warn,
+        secondary: l.errStorageSecondary,
+      ),
+      AppErrorKind.exists => ErrorConfig(
+        icon: 'check',
+        title: l.errExistsTitle,
+        body: l.errExistsBody,
+        cta: l.errExistsCta,
+        ctaIcon: 'photo',
+        tone: ErrorTone.success,
+        secondary: l.errExistsSecondary,
+      ),
+      AppErrorKind.permissionDeniedPermanently => ErrorConfig(
+        icon: 'settings',
+        title: l.errPermTitle,
+        body: l.errPermBody,
+        cta: l.errPermCta,
+        ctaIcon: 'settings',
+        tone: ErrorTone.warn,
+        secondary: l.errPermSecondary,
+      ),
+      AppErrorKind.queueItemFailed => ErrorConfig(
+        icon: 'alert',
+        title: l.errQueueTitle,
+        body: l.errQueueBody,
+        cta: l.errQueueCta,
+        ctaIcon: 'refresh',
+        tone: ErrorTone.warn,
+        secondary: l.errQueueSecondary,
+      ),
+    };

@@ -27,6 +27,7 @@ import '../../core/widgets/q_button.dart';
 import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_ring.dart';
 import '../../core/widgets/q_top_bar.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/downloads/download_models.dart';
 import '../../services/downloads/download_queue_provider.dart';
 import '../../state/models/app_enums.dart';
@@ -54,9 +55,10 @@ class DownloadingScreen extends ConsumerWidget {
 
     final multi = state.isMulti;
     final paused = state.isPaused;
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: QTopBar(title: multi ? 'Saving items' : null),
+      appBar: QTopBar(title: multi ? l.downloadingTitleMulti : null),
       body: SafeArea(
         top: false,
         child: Column(
@@ -77,14 +79,14 @@ class DownloadingScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   QButton(
-                    label: paused ? 'Resume' : 'Pause',
+                    label: paused ? l.downloadingResume : l.downloadingPause,
                     icon: paused ? QIcons.download : QIcons.close,
                     variant: QButtonVariant.soft,
                     onPressed: paused ? service.resume : service.pause,
                   ),
                   SizedBox(height: AppSpacing.sm + 1),
                   QButton(
-                    label: 'Cancel',
+                    label: l.downloadingCancel,
                     icon: QIcons.close,
                     variant: QButtonVariant.outline,
                     onPressed: () {
@@ -110,6 +112,7 @@ class _SingleProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final pct = (progress * 100).round();
     // Fabricated demo figures (no real transfer this pass).
     final mb = (progress * 24).toStringAsFixed(1);
@@ -141,12 +144,12 @@ class _SingleProgress extends StatelessWidget {
             ),
             SizedBox(height: AppSpacing.xxl + 4),
             Text(
-              'Saving video…',
+              l.downloadingSavingVideo,
               style: AppTypography.headline.copyWith(fontSize: 18),
             ),
             SizedBox(height: AppSpacing.sm - 2),
             Text(
-              '$mb MB of 24 MB · 3.2 MB/s',
+              l.downloadingSingleDetail(mb),
               style: AppTypography.caption.copyWith(color: AppColors.sub),
             ),
           ],
@@ -164,6 +167,7 @@ class _MultiQueue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final items = state.items;
     final overall = state.overallProgress;
     final done = state.completedCount;
@@ -202,12 +206,12 @@ class _MultiQueue extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Saving ${items.length} items',
+                      l.downloadingSavingCount(items.length),
                       style: AppTypography.headline,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$done done · $remaining remaining',
+                      l.downloadingProgressDetail(done, remaining),
                       style: AppTypography.caption.copyWith(
                         color: AppColors.sub,
                       ),
@@ -243,16 +247,17 @@ class _QueueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final pct = (item.progress * 100).round();
     final complete = item.isComplete;
     final failed = item.isFailed;
     final isVideo = item.kind == MediaKind.video;
 
     final statusText = switch (item.status) {
-      DownloadItemStatus.completed => '${item.meta} · done',
-      DownloadItemStatus.failed => '${item.meta} · failed',
-      DownloadItemStatus.paused => '${item.meta} · paused',
-      DownloadItemStatus.canceled => '${item.meta} · canceled',
+      DownloadItemStatus.completed => '${item.meta} · ${l.statusDone}',
+      DownloadItemStatus.failed => '${item.meta} · ${l.statusFailed}',
+      DownloadItemStatus.paused => '${item.meta} · ${l.statusPaused}',
+      DownloadItemStatus.canceled => '${item.meta} · ${l.statusCanceled}',
       _ => '${item.meta} · $pct%',
     };
 

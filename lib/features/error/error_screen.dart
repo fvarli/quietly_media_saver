@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/flow/app_flow.dart';
 import '../../core/icons/q_icons.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/theme/tokens/app_colors.dart';
 import '../../core/theme/tokens/app_radius.dart';
 import '../../core/theme/tokens/app_spacing.dart';
@@ -60,7 +61,7 @@ class ErrorScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
     final kind = ref.watch(appStateProvider).error;
-    final cfg = kErrorConfig[kind] ?? kErrorConfig[AppErrorKind.protected]!;
+    final cfg = errorConfigFor(AppLocalizations.of(context), kind);
     final tone = _toneColors(cfg.tone);
     final actions = _actionsFor(kind, flow);
     final showRefusal =
@@ -212,7 +213,7 @@ class _TipsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'You can try',
+            AppLocalizations.of(context).errTipsHeader,
             style: AppTypography.caption.copyWith(
               color: AppColors.ink,
               fontWeight: FontWeight.w700,

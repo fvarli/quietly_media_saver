@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/a11y/a11y.dart';
 import '../core/theme/app_theme.dart';
+import '../l10n/app_localizations.dart';
 import 'bootstrap/app_bootstrap.dart';
 import 'router/app_router.dart';
 
@@ -61,6 +62,15 @@ class _QuietlyAppState extends ConsumerState<QuietlyApp> {
       // Dark theme is a planned follow-up (HANDOFF §F #3); themeMode is set so
       // adding `darkTheme:` later requires no structural change here.
       themeMode: ThemeMode.light,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // Device language → tr / es, everything else → English.
+      localeResolutionCallback: (locale, supported) {
+        final code = locale?.languageCode;
+        if (code == 'tr') return const Locale('tr');
+        if (code == 'es') return const Locale('es');
+        return const Locale('en');
+      },
       routerConfig: router,
       builder: (context, child) {
         // Honor the user's text-scale setting; only clamp the extreme upper end

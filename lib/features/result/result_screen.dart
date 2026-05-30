@@ -27,8 +27,10 @@ import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_pill.dart';
 import '../../core/widgets/q_top_bar.dart';
 import '../../core/widgets/rights_note.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
+import '../../state/models/quality_option.dart';
 
 class ResultScreen extends ConsumerWidget {
   const ResultScreen({super.key});
@@ -36,6 +38,7 @@ class ResultScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
+    final l = AppLocalizations.of(context);
     final state = ref.watch(appStateProvider);
     final quality = state.qualityOption;
 
@@ -49,26 +52,27 @@ class ResultScreen extends ConsumerWidget {
     final isVideo = kind == MediaKind.video;
     final host = analysis?.host ?? 'example.com';
     final sizeMb = item?.sizeMb ?? 0;
-    final format = isVideo ? 'Landscape · MP4' : 'JPG';
+    final format = isVideo ? l.resultFormatVideo : l.resultFormatImage;
     final formatLabel = sizeMb > 0
-        ? '$format · ≈ ${_formatSize(sizeMb)}'
+        ? '$format${l.resultSizeSuffix(_formatSize(sizeMb))}'
         : format;
     final count = analysis?.items.length ?? 1;
     final durationLabel = _formatDuration(item?.durationSeconds ?? 42);
-    final title =
-        'Public post · $count ${isVideo ? 'video' : 'image'}${count == 1 ? '' : 's'}';
+    final title = isVideo
+        ? l.resultVideoSummary(count)
+        : l.resultImageSummary(count);
     final saveKinds =
         analysis?.items.map((m) => m.kind).toList() ?? const [MediaKind.video];
 
     return Scaffold(
       appBar: QTopBar(
-        title: 'Available media',
+        title: l.resultTitle,
         onBack: () => context.canPop() ? context.pop() : flow.goHome(),
         right: IconButton(
           onPressed: () {}, // Share is a no-op placeholder this pass.
           icon: const Icon(QIcons.share, size: 19),
           color: AppColors.sub,
-          tooltip: 'Share',
+          tooltip: l.shareTooltip,
         ),
       ),
       body: SafeArea(
@@ -91,7 +95,7 @@ class ResultScreen extends ConsumerWidget {
                       tone: isVideo ? QTileTone.cool : QTileTone.neutral,
                       radius: AppRadius.xl,
                       aspectRatio: 4 / 3,
-                      label: isVideo ? 'video' : 'image',
+                      label: isVideo ? l.labelVideo : l.labelImage,
                       badge: isVideo
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
@@ -102,9 +106,7 @@ class ResultScreen extends ConsumerWidget {
                               ],
                             )
                           : null,
-                      semanticLabel: isVideo
-                          ? 'Video preview'
-                          : 'Image preview',
+                      semanticLabel: isVideo ? l.previewVideo : l.previewImage,
                     ),
                     SizedBox(height: AppSpacing.lg),
                     Text(
@@ -128,8 +130,11 @@ class ResultScreen extends ConsumerWidget {
                     _ExplainNote(),
                     SizedBox(height: AppSpacing.lg),
                     _QualityRow(
-                      label: '${quality.label} · ${quality.tag}',
-                      sub: '≈ ${quality.size} · tap to change quality',
+                      label: l.resultQualityRow(
+                        qualityLabel(l, quality),
+                        qualityTag(l, quality),
+                      ),
+                      sub: l.resultQualitySub(quality.size),
                       onTap: flow.openQualitySheet,
                     ),
                   ],
@@ -146,7 +151,7 @@ class ResultScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   QButton(
-                    label: 'Save to gallery',
+                    label: l.resultSaveCta,
                     icon: QIcons.download,
                     onPressed: () => flow.requestSave(saveKinds),
                   ),
@@ -181,7 +186,7 @@ class _ExplainNote extends StatelessWidget {
         SizedBox(width: AppSpacing.sm + 1),
         Expanded(
           child: Text(
-            'This media is publicly accessible. Choose a quality below, then save it to your gallery.',
+            AppLocalizations.of(context).resultExplain,
             style: AppTypography.caption.copyWith(color: AppColors.sub),
           ),
         ),

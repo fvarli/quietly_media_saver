@@ -30,6 +30,7 @@ import '../../core/widgets/q_section_label.dart';
 import '../../core/widgets/rights_note.dart';
 import '../../core/widgets/steps_row.dart';
 import '../../core/widgets/trust_row.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/history_entry.dart';
@@ -53,6 +54,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlow(context, ref);
+    final l = AppLocalizations.of(context);
     final state = ref.watch(appStateProvider);
     final history = state.history;
     final clipboardUrl = state.clipboardUrl;
@@ -87,7 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Semantics(
                             header: true,
                             child: Text(
-                              'Save public media to your gallery',
+                              l.homeHeadline,
                               style: AppTypography.display,
                             ),
                           ),
@@ -95,8 +97,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 300),
                             child: Text(
-                              'Paste a public link and Quietly checks it, then saves '
-                              'the photo or video to your gallery.',
+                              l.homeSubtitle,
                               style: AppTypography.bodySub,
                             ),
                           ),
@@ -132,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Column(
                 children: [
                   QButton(
-                    label: 'Paste link',
+                    label: l.homePasteCta,
                     icon: QIcons.paste,
                     onPressed: flow.pasteFromClipboard,
                   ),
@@ -156,6 +157,7 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.lg + 2,
@@ -166,7 +168,7 @@ class _HomeHeader extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'Quietly',
+            l.brandName,
             style: AppTypography.title.copyWith(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -176,13 +178,13 @@ class _HomeHeader extends StatelessWidget {
           const Spacer(),
           _CircleIconButton(
             icon: QIcons.clock,
-            label: 'History',
+            label: l.homeHistoryTooltip,
             onTap: flow.openHistory,
           ),
           SizedBox(width: AppSpacing.sm - 2),
           _CircleIconButton(
             icon: QIcons.settings,
-            label: 'Settings',
+            label: l.homeSettingsTooltip,
             onTap: flow.openSettings,
           ),
         ],
@@ -219,7 +221,7 @@ class _OfflineBanner extends StatelessWidget {
             SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
-                'You’re offline — saved media still works.',
+                AppLocalizations.of(context).homeOffline,
                 style: AppTypography.caption.copyWith(color: AppColors.warn),
               ),
             ),
@@ -289,7 +291,7 @@ class _HomeZeroState extends StatelessWidget {
           SizedBox(width: AppSpacing.sm),
           Flexible(
             child: Text(
-              'Nothing saved yet — your saves will appear here.',
+              AppLocalizations.of(context).homeZeroState,
               style: AppTypography.caption.copyWith(color: AppColors.faintText),
             ),
           ),
@@ -323,9 +325,10 @@ class _ClipboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return QCard(
       onTap: onTap,
-      semanticLabel: 'Use link from your clipboard: $url',
+      semanticLabel: l.homeClipboardSemantic(url),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       child: Row(
         children: [
@@ -344,7 +347,7 @@ class _ClipboardCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'FROM YOUR CLIPBOARD',
+                  l.homeClipboardLabel,
                   style: AppTypography.micro.copyWith(
                     color: AppColors.accent,
                     fontWeight: FontWeight.w700,
@@ -378,6 +381,7 @@ class _RecentStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final recent = history.take(4).toList();
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -391,10 +395,10 @@ class _RecentStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              const QSectionLabel('Recent saves'),
+              QSectionLabel(l.homeRecentSaves),
               const Spacer(),
               QButton(
-                label: 'See all',
+                label: l.homeSeeAll,
                 variant: QButtonVariant.ghost,
                 size: QButtonSize.sm,
                 fullWidth: false,

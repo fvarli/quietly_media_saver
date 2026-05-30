@@ -8,6 +8,8 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../../l10n/app_localizations.dart';
+
 @immutable
 class QualityOption {
   const QualityOption({
@@ -53,3 +55,16 @@ const List<QualityOption> kQualityOptions = <QualityOption>[
   QualityOption(id: '480p', label: '480p', tag: 'Data saver', size: '7 MB'),
   QualityOption(id: 'audio', label: 'Audio only', tag: 'M4A', size: '2 MB'),
 ];
+
+/// Localized display label ('1080p' etc. are codes; only 'Audio only' translates).
+String qualityLabel(AppLocalizations l, QualityOption o) =>
+    o.id == 'audio' ? l.qualityLabelAudio : o.label;
+
+/// Localized descriptor for a quality option.
+String qualityTag(AppLocalizations l, QualityOption o) => switch (o.id) {
+  '1080p' => l.qualityTagHigh,
+  '720p' => l.qualityTagStandard,
+  '480p' => l.qualityTagDataSaver,
+  'audio' => l.qualityTagAudio,
+  _ => o.tag,
+};

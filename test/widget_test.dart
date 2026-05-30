@@ -29,6 +29,7 @@ import 'package:quietly_media_saver/core/widgets/q_bar.dart';
 import 'package:quietly_media_saver/core/widgets/q_button.dart';
 import 'package:quietly_media_saver/core/widgets/q_media_tile.dart';
 import 'package:quietly_media_saver/core/widgets/q_pill.dart';
+import 'package:quietly_media_saver/l10n/app_localizations.dart';
 import 'package:quietly_media_saver/features/analyzing/analyzing_screen.dart';
 import 'package:quietly_media_saver/features/carousel/carousel_screen.dart';
 import 'package:quietly_media_saver/features/downloading/downloading_screen.dart';
@@ -310,16 +311,24 @@ class FakeReachabilityService implements ReachabilityService {
 }
 
 /// Pumps [child] inside an UncontrolledProviderScope bound to [container] and a
-/// MaterialApp, for screen tests that need a pre-seeded AppState.
+/// MaterialApp, for screen tests that need a pre-seeded AppState. The MaterialApp
+/// carries the AppLocalizations delegates so `AppLocalizations.of` resolves;
+/// [locale] forces a specific UI language (defaults to English).
 Future<void> _pumpScreen(
   WidgetTester tester,
   ProviderContainer container,
-  Widget child,
-) {
+  Widget child, {
+  Locale locale = const Locale('en'),
+}) {
   return tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child),
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: child,
+      ),
     ),
   );
 }
@@ -422,7 +431,13 @@ void main() {
     ) async {
       _usePhoneViewport(tester);
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: ResultScreen())),
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const ResultScreen(),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -1114,6 +1129,58 @@ void main() {
     });
   });
 
+  group('Localization (tr/es)', () {
+    testWidgets('Turkish locale renders translated UI', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await _pumpScreen(
+        tester,
+        container,
+        const SettingsScreen(),
+        locale: const Locale('tr'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ayarlar'), findsOneWidget); // "Settings"
+      expect(find.text('Settings'), findsNothing);
+    });
+
+    testWidgets('Spanish locale renders translated UI', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(appStateProvider.notifier).clearHistory();
+      await _pumpScreen(
+        tester,
+        container,
+        const HistoryScreen(),
+        locale: const Locale('es'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aún no hay guardados'), findsOneWidget); // empty title
+      expect(find.text('No saves yet'), findsNothing);
+    });
+
+    testWidgets('unsupported locale falls back to English', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      // 'fr' is not supported; resolution falls back to the first supported
+      // locale (en) — the app's "all others → English" rule.
+      await _pumpScreen(
+        tester,
+        container,
+        const SettingsScreen(),
+        locale: const Locale('fr'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settings'), findsOneWidget);
+    });
+  });
+
   group('Settings screen', () {
     testWidgets('renders rights/legal, permission and storage sections', (
       tester,
@@ -1171,7 +1238,8 @@ void main() {
         await _pumpScreen(tester, container, const ErrorScreen());
         await tester.pumpAndSettle();
 
-        final cfg = kErrorConfig[kind]!;
+        final l = AppLocalizations.of(tester.element(find.byType(ErrorScreen)));
+        final cfg = errorConfigFor(l, kind);
         expect(find.text(cfg.title), findsOneWidget, reason: 'title for $kind');
         expect(find.text(cfg.cta), findsOneWidget, reason: 'cta for $kind');
         container.dispose();

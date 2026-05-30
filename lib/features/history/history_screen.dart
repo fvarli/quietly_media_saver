@@ -25,15 +25,16 @@ import '../../core/widgets/q_card.dart';
 import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_section_label.dart';
 import '../../core/widgets/steps_row.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/gallery/gallery_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/history_entry.dart';
 
-const Map<HistoryGroup, String> _kGroupLabels = {
-  HistoryGroup.today: 'Today',
-  HistoryGroup.yesterday: 'Yesterday',
-  HistoryGroup.earlier: 'Earlier',
+String _groupLabel(AppLocalizations l, HistoryGroup group) => switch (group) {
+  HistoryGroup.today => l.historyToday,
+  HistoryGroup.yesterday => l.historyYesterday,
+  HistoryGroup.earlier => l.historyEarlier,
 };
 
 class HistoryScreen extends ConsumerWidget {
@@ -42,13 +43,14 @@ class HistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
+    final l = AppLocalizations.of(context);
     final state = ref.watch(appStateProvider);
     final groups = state.historyGroups;
 
     return Scaffold(
       appBar: QTopBarFromHistory(
         onBack: () => context.canPop() ? context.pop() : flow.goHome(),
-        onSearch: () => _snack(context, 'Search is coming soon.'),
+        onSearch: () => _snack(context, l.historySearchComingSoon),
         showSearch: state.history.isNotEmpty,
       ),
       body: SafeArea(
@@ -66,7 +68,7 @@ class HistoryScreen extends ConsumerWidget {
                   _StorageSummary(count: state.history.length),
                   SizedBox(height: AppSpacing.lg),
                   for (final group in groups) ...[
-                    QSectionLabel(_kGroupLabels[group.key] ?? ''),
+                    QSectionLabel(_groupLabel(l, group.key)),
                     SizedBox(height: AppSpacing.md - 1),
                     for (final entry in group.value) ...[
                       _HistoryRow(
@@ -130,21 +132,22 @@ class QTopBarFromHistory extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return AppBar(
       leading: IconButton(
         onPressed: onBack,
         icon: const Icon(QIcons.chevronLeft, size: 24),
         color: AppColors.ink,
-        tooltip: 'Back',
+        tooltip: l.backTooltip,
       ),
-      title: Text('History', style: AppTypography.headline),
+      title: Text(l.historyTitle, style: AppTypography.headline),
       actions: [
         if (showSearch)
           IconButton(
             onPressed: onSearch,
             icon: const Icon(QIcons.search, size: 20),
             color: AppColors.ink,
-            tooltip: 'Search',
+            tooltip: l.searchTooltip,
           ),
       ],
     );
@@ -158,8 +161,9 @@ class _StorageSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Semantics(
-      label: '$count saves, 248 megabytes used, stored in your gallery',
+      label: '${l.historyStorageSummary(count)}, ${l.historyStoredInGallery}',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
         decoration: const BoxDecoration(
@@ -187,14 +191,14 @@ class _StorageSummary extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$count saves · 248 MB used',
+                    l.historyStorageSummary(count),
                     style: AppTypography.caption.copyWith(
                       color: AppColors.accentInk,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
-                    'Stored in your gallery',
+                    l.historyStoredInGallery,
                     style: AppTypography.micro.copyWith(
                       color: AppColors.accentInk,
                     ),
@@ -281,16 +285,17 @@ class _RowActionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SafeArea(
       top: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _ActionTile(icon: QIcons.photo, label: 'Open', id: 'open'),
-          _ActionTile(icon: QIcons.share, label: 'Share', id: 'share'),
+          _ActionTile(icon: QIcons.photo, label: l.actionOpen, id: 'open'),
+          _ActionTile(icon: QIcons.share, label: l.actionShare, id: 'share'),
           _ActionTile(
             icon: QIcons.trash,
-            label: 'Remove',
+            label: l.actionRemove,
             id: 'remove',
             danger: true,
           ),
@@ -332,6 +337,7 @@ class _EmptyHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -360,13 +366,13 @@ class _EmptyHistory extends StatelessWidget {
             Semantics(
               header: true,
               child: Text(
-                'No saves yet',
+                l.historyEmptyTitle,
                 style: AppTypography.title.copyWith(fontSize: 21),
               ),
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
-              'Media you save will appear here, grouped by day. Here’s how it works:',
+              l.historyEmptyBody,
               textAlign: TextAlign.center,
               style: AppTypography.bodySub,
             ),
@@ -374,7 +380,7 @@ class _EmptyHistory extends StatelessWidget {
             const StepsList(),
             SizedBox(height: AppSpacing.xl),
             QButton(
-              label: 'Paste a link',
+              label: l.historyEmptyCta,
               icon: QIcons.paste,
               onPressed: onPaste,
             ),

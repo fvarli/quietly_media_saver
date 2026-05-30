@@ -25,6 +25,7 @@ import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_pill.dart';
 import '../../core/widgets/q_top_bar.dart';
 import '../../core/widgets/trust_row.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 
@@ -34,6 +35,7 @@ class SuccessScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
+    final l = AppLocalizations.of(context);
     final saved = ref.watch(appStateProvider).lastSaved;
     final n = saved.length;
 
@@ -43,7 +45,7 @@ class SuccessScreen extends ConsumerWidget {
           onPressed: flow.goHome,
           icon: const Icon(QIcons.close, size: 20),
           color: AppColors.sub,
-          tooltip: 'Close',
+          tooltip: l.closeTooltip,
         ),
       ),
       body: SafeArea(
@@ -68,24 +70,24 @@ class SuccessScreen extends ConsumerWidget {
                         Semantics(
                           header: true,
                           child: Text(
-                            n > 1 ? '$n items saved' : 'Saved to gallery',
+                            n > 1
+                                ? l.successTitleMulti(n)
+                                : l.successTitleSingle,
                             textAlign: TextAlign.center,
                             style: AppTypography.title.copyWith(fontSize: 24),
                           ),
                         ),
                         SizedBox(height: AppSpacing.sm + 1),
                         Text(
-                          n > 1
-                              ? 'They’re in your gallery, ready offline.'
-                              : 'Your media is in your gallery, ready offline.',
+                          n > 1 ? l.successBodyMulti : l.successBodySingle,
                           textAlign: TextAlign.center,
                           style: AppTypography.bodySub,
                         ),
                         SizedBox(height: AppSpacing.xxl),
                         _SavedStrip(kinds: saved),
                         SizedBox(height: AppSpacing.lg),
-                        const QPill(
-                          'Added to your history',
+                        QPill(
+                          l.successAddedHistory,
                           tone: QPillTone.success,
                           icon: QIcons.check,
                         ),
@@ -108,20 +110,20 @@ class SuccessScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   QButton(
-                    label: 'Open in gallery',
+                    label: l.successOpenGallery,
                     icon: QIcons.photo,
                     onPressed: () => _openGalleryPlaceholder(context),
                   ),
                   SizedBox(height: AppSpacing.sm + 1),
                   QButton(
-                    label: 'View history',
+                    label: l.successViewHistory,
                     icon: QIcons.clock,
                     variant: QButtonVariant.soft,
                     onPressed: flow.openHistory,
                   ),
                   SizedBox(height: AppSpacing.sm + 1),
                   QButton(
-                    label: 'Save another link',
+                    label: l.successSaveAnother,
                     icon: QIcons.paste,
                     variant: QButtonVariant.ghost,
                     onPressed: flow.goHome,
@@ -138,10 +140,8 @@ class SuccessScreen extends ConsumerWidget {
   // Placeholder: real gallery access arrives with the storage/permission pass.
   void _openGalleryPlaceholder(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Saved to your gallery. Opening it arrives with gallery access.',
-        ),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).successGalleryPlaceholder),
       ),
     );
   }

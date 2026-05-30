@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../icons/q_icons.dart';
 import '../theme/tokens/app_colors.dart';
 import '../theme/tokens/app_radius.dart';
@@ -47,8 +48,8 @@ class UrlChip extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           trailing ??
-              const QPill(
-                'Public',
+              QPill(
+                AppLocalizations.of(context).publicChip,
                 tone: QPillTone.success,
                 icon: QIcons.shield,
               ),

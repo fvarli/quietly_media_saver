@@ -26,6 +26,7 @@ import '../../core/widgets/q_media_tile.dart';
 import '../../core/widgets/q_pill.dart';
 import '../../core/widgets/q_top_bar.dart';
 import '../../core/widgets/rights_note.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/carousel_item.dart';
@@ -36,6 +37,7 @@ class CarouselScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final flow = AppFlow(context, ref);
+    final l = AppLocalizations.of(context);
     final notifier = ref.read(appStateProvider.notifier);
     final state = ref.watch(appStateProvider);
     final items = state.carousel;
@@ -44,10 +46,10 @@ class CarouselScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: QTopBar(
-        title: '${items.length} items found',
+        title: l.carouselItemsFound(items.length),
         onBack: () => context.canPop() ? context.pop() : flow.goHome(),
         right: QButton(
-          label: allSelected ? 'Clear' : 'Select all',
+          label: allSelected ? l.carouselClear : l.carouselSelectAll,
           variant: QButtonVariant.ghost,
           size: QButtonSize.sm,
           fullWidth: false,
@@ -68,14 +70,14 @@ class CarouselScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  const QPill(
-                    'Carousel',
+                  QPill(
+                    l.carouselTag,
                     tone: QPillTone.accent,
                     icon: QIcons.layers,
                   ),
                   SizedBox(width: AppSpacing.sm + 1),
                   Text(
-                    '$selected selected',
+                    l.carouselSelectedCount(selected),
                     style: AppTypography.caption.copyWith(color: AppColors.sub),
                   ),
                 ],
@@ -127,8 +129,11 @@ class _CarouselRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isVideo = item.kind == MediaKind.video;
-    final title = isVideo ? 'Video clip' : 'Image ${index + 1}';
+    final title = isVideo
+        ? l.carouselVideoTitle
+        : l.carouselImageTitle(index + 1);
     final meta = isVideo
         ? '0:${item.durationSeconds ?? 0} · MP4 · ≈ ${item.megabytes} MB'
         : 'JPG · ≈ ${item.megabytes} MB';
@@ -210,9 +215,10 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final label = selectedCount == 0
-        ? 'Select items to save'
-        : 'Save $selectedCount item${selectedCount == 1 ? '' : 's'} · ≈ ${sizeMb.toStringAsFixed(1)} MB';
+        ? l.carouselSelectToSave
+        : l.carouselSaveCta(selectedCount, sizeMb.toStringAsFixed(1));
 
     return Container(
       decoration: const BoxDecoration(

@@ -6,28 +6,35 @@
 // always-present reminder that only public media the user has rights to may be
 // saved. Reused on Home, Result, Settings, and refusal/error states.
 //
-// Semantics: the icon is decorative; the message text is read normally by
-// screen readers as part of the surrounding content.
+// The variant is a [RightsCopy] enum; the localized text is resolved from
+// AppLocalizations at render. The icon is decorative.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../theme/tokens/app_colors.dart';
 import '../theme/tokens/app_spacing.dart';
 import '../theme/tokens/app_typography.dart';
 
-class RightsNote extends StatelessWidget {
-  const RightsNote(
-    this.message, {
-    super.key,
-    this.icon = Icons.shield_outlined,
-  });
+/// Which rights message to show (resolved to localized copy by [RightsNote]).
+enum RightsCopy { home, save, statement, refusal }
 
-  final String message;
+class RightsNote extends StatelessWidget {
+  const RightsNote(this.copy, {super.key, this.icon = Icons.shield_outlined});
+
+  final RightsCopy copy;
   final IconData icon;
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final message = switch (copy) {
+      RightsCopy.home => l.rightsHome,
+      RightsCopy.save => l.rightsSave,
+      RightsCopy.statement => l.rightsStatement,
+      RightsCopy.refusal => l.rightsRefusal,
+    };
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -39,25 +46,4 @@ class RightsNote extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Canonical rights copy reused across screens (verbatim from the handoff).
-abstract final class RightsCopy {
-  const RightsCopy._();
-
-  /// Home / general.
-  static const String home =
-      'Save only content you have the rights to. Private or protected media isn’t supported.';
-
-  /// Result / save confirmation.
-  static const String save =
-      'By saving, you confirm you have the right to keep this content.';
-
-  /// Settings rights statement.
-  static const String statement =
-      'Quietly saves only publicly accessible media. You’re responsible for ensuring you have the rights to save and use any content. Private, login-only, and DRM-protected media isn’t supported.';
-
-  /// Refusal/error footnote (protected / unsupported).
-  static const String refusal =
-      'Quietly respects platform rules and creators’ rights. Some media simply can’t be saved.';
 }

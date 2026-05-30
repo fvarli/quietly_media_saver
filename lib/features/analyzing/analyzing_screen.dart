@@ -24,16 +24,11 @@ import '../../core/widgets/q_dots.dart';
 import '../../core/widgets/q_ring.dart';
 import '../../core/widgets/q_top_bar.dart';
 import '../../core/widgets/url_chip.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state_provider.dart';
 
 /// Visual duration of the analyzing animation (mirrors the calm minimum).
 const Duration kAnalyzeVisualDuration = kMinAnalyzeDuration;
-
-const List<String> _kSteps = [
-  'Reaching the page',
-  'Checking it’s public',
-  'Listing available media',
-];
 
 // Fractions of the animation at which each step flips to "done".
 const List<double> _kStepThresholds = [0.24, 0.52, 0.80];
@@ -79,6 +74,7 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen>
   @override
   Widget build(BuildContext context) {
     final url = ref.watch(appStateProvider).lastSubmittedUrl ?? _kExampleUrl;
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: QTopBar(onBack: () => AppFlow(context, ref).goHome()),
       body: SafeArea(
@@ -123,7 +119,7 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen>
                                     child: Semantics(
                                       header: true,
                                       child: Text(
-                                        'Reading this link',
+                                        l.analyzingTitle,
                                         style: AppTypography.title,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -139,7 +135,7 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen>
                                   maxWidth: 250,
                                 ),
                                 child: Text(
-                                  'Finding media that’s publicly available for you to save.',
+                                  l.analyzingSubtitle,
                                   textAlign: TextAlign.center,
                                   style: AppTypography.bodySub,
                                 ),
@@ -178,15 +174,17 @@ class _StepList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final steps = [l.analyzingStep1, l.analyzingStep2, l.analyzingStep3];
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 270),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < _kSteps.length; i++) ...[
+          for (var i = 0; i < steps.length; i++) ...[
             if (i > 0) SizedBox(height: AppSpacing.md + 1),
             _StepRow(
-              label: _kSteps[i],
+              label: steps[i],
               done: i < doneCount,
               active: i == doneCount,
             ),

@@ -21,6 +21,7 @@ import '../../core/theme/tokens/app_typography.dart';
 import '../../core/widgets/q_button.dart';
 import '../../core/widgets/steps_row.dart';
 import '../../core/widgets/trust_row.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state_provider.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -59,6 +60,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isLast = _page == _lastPage;
     return Scaffold(
       body: SafeArea(
@@ -82,7 +84,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               child: Column(
                 children: [
                   QButton(
-                    label: isLast ? 'Get started' : 'Continue',
+                    label: isLast
+                        ? l.onboardingGetStarted
+                        : l.onboardingContinue,
                     onPressed: _next,
                   ),
                   SizedBox(height: AppSpacing.sm),
@@ -91,7 +95,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: isLast
                         ? null
                         : QButton(
-                            label: 'Skip',
+                            label: l.onboardingSkip,
                             variant: QButtonVariant.ghost,
                             onPressed: _complete,
                           ),
@@ -155,6 +159,7 @@ class _ValuePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return _Page(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,17 +181,10 @@ class _ValuePage extends StatelessWidget {
           SizedBox(height: AppSpacing.xl),
           Semantics(
             header: true,
-            child: Text(
-              'Save public photos & videos to your gallery',
-              style: AppTypography.display,
-            ),
+            child: Text(l.onboardingValueTitle, style: AppTypography.display),
           ),
           SizedBox(height: AppSpacing.md),
-          Text(
-            'Paste a link — Quietly checks it’s public, then saves it. '
-            'Calm and private.',
-            style: AppTypography.bodySub,
-          ),
+          Text(l.onboardingValueBody, style: AppTypography.bodySub),
         ],
       ),
     );
@@ -205,7 +203,10 @@ class _HowPage extends StatelessWidget {
           SizedBox(height: AppSpacing.lg),
           Semantics(
             header: true,
-            child: Text('How it works', style: AppTypography.title),
+            child: Text(
+              AppLocalizations.of(context).onboardingHowTitle,
+              style: AppTypography.title,
+            ),
           ),
           SizedBox(height: AppSpacing.xl),
           const StepsList(),
@@ -220,6 +221,7 @@ class _TrustPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return _Page(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,7 +229,7 @@ class _TrustPage extends StatelessWidget {
           SizedBox(height: AppSpacing.lg),
           Semantics(
             header: true,
-            child: Text('Private by design', style: AppTypography.title),
+            child: Text(l.onboardingTrustTitle, style: AppTypography.title),
           ),
           SizedBox(height: AppSpacing.lg),
           const Align(alignment: Alignment.centerLeft, child: TrustRow()),
@@ -239,8 +241,7 @@ class _TrustPage extends StatelessWidget {
               SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Quietly saves public, permitted media only. Your saves and '
-                  'settings stay on your device.',
+                  l.onboardingTrustBody,
                   style: AppTypography.bodySub,
                 ),
               ),

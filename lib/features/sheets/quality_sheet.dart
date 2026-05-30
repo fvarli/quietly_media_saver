@@ -15,6 +15,7 @@ import '../../core/theme/tokens/app_spacing.dart';
 import '../../core/theme/tokens/app_typography.dart';
 import '../../core/widgets/q_button.dart';
 import '../../core/widgets/q_pill.dart';
+import '../../l10n/app_localizations.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/quality_option.dart';
 
@@ -25,6 +26,7 @@ class QualitySheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(appStateProvider).quality;
     final notifier = ref.read(appStateProvider.notifier);
+    final l = AppLocalizations.of(context);
 
     return SafeArea(
       top: false,
@@ -47,13 +49,10 @@ class QualitySheet extends ConsumerWidget {
             children: [
               Semantics(
                 header: true,
-                child: Text('Choose quality', style: AppTypography.title),
+                child: Text(l.qualityTitle, style: AppTypography.title),
               ),
               SizedBox(height: AppSpacing.xs),
-              Text(
-                'Higher quality looks sharper but uses more storage.',
-                style: AppTypography.caption,
-              ),
+              Text(l.qualitySubtitle, style: AppTypography.caption),
               SizedBox(height: AppSpacing.md),
               for (final option in kQualityOptions)
                 RadioListTile<String>(
@@ -61,21 +60,21 @@ class QualitySheet extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Row(
                     children: [
-                      Text(option.label, style: AppTypography.body),
+                      Text(qualityLabel(l, option), style: AppTypography.body),
                       if (option.recommended) ...[
                         SizedBox(width: AppSpacing.sm),
-                        const QPill('Recommended', tone: QPillTone.accent),
+                        QPill(l.qualityRecommended, tone: QPillTone.accent),
                       ],
                     ],
                   ),
                   subtitle: Text(
-                    '${option.tag} · ≈ ${option.size}',
+                    l.qualitySubRow(qualityTag(l, option), option.size),
                     style: AppTypography.micro,
                   ),
                 ),
               SizedBox(height: AppSpacing.md),
               QButton(
-                label: 'Done',
+                label: l.qualityDone,
                 icon: QIcons.check,
                 onPressed: () => Navigator.of(context).pop(),
               ),
