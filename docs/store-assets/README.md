@@ -1,6 +1,6 @@
 # Quietly — Store assets
 
-> **Status:** icon = **interim** (serviceable, not final brand) · feature graphic = done · screenshots = run integration_test on a device · **Last updated:** 2026-05-30 · **Owner:** Lunexa
+> **Status:** icon = **interim** (serviceable, not final brand) · feature graphic = done · screenshots = done (6 @ 1080×2400) · **Last updated:** 2026-05-30 · **Owner:** Lunexa
 > Google Play visual assets for **Quietly – Media Saver**. Brand: paper `#FAF8F4`,
 > ink `#211D18`, indigo accent `#4B53C4`. **No platform logos, no "download from X".**
 
@@ -21,7 +21,7 @@ feature graphic (commands below).
 | Play hi-res icon **512×512** | ✅ | ✅ Interim | `docs/store-assets/icon-512.png` |
 | Icon master (1024) + foreground | source | ✅ Interim | `assets/icon/quietly_icon_1024.png`, `…_foreground.png` |
 | **Feature graphic 1024×500** | ✅ | ✅ Done | `docs/store-assets/feature-graphic-1024x500.png` |
-| **Phone screenshots** (6) | ✅ | ⏳ Run on device | `docs/store-assets/screenshots/` (via integration_test) |
+| **Phone screenshots** (6) | ✅ | ✅ Done (1080×2400, on-device) | `docs/store-assets/screenshots/01-home … 06-private.png` |
 
 ## Regenerate icon + 512 + feature graphic (after swapping the icon)
 ```
@@ -39,13 +39,16 @@ convert -size 1024x500 xc:'#FAF8F4' \
   -alpha remove -alpha off -depth 8 docs/store-assets/feature-graphic-1024x500.png
 ```
 
-## Screenshots — run the integration_test capture on a device/emulator
-Headless `flutter test` renders text as boxes (no bundled font), so screenshots use
-**`integration_test`** (real device fonts + real UI). Files:
+## Screenshots — ✅ captured (1080×2400, on-device)
+The 6 screenshots in `screenshots/` were captured on an Android emulator (real
+fonts + real UI) and verified (legible, on-brand, abstract media only, no platform
+logos). Headless `flutter test` renders text as boxes, so capture uses
+**`integration_test`**:
 - `integration_test/store_screenshots_test.dart` — seeds + renders the 6 screens, calls `binding.takeScreenshot('NN-name')`.
 - `test_driver/integration_test.dart` — writes the bytes to `docs/store-assets/screenshots/NN-name.png`.
 
-Run on a phone/emulator (recommend a 1080×2340 phone profile for Play dimensions):
+To **re-capture** (e.g. after the final brand icon lands), boot an Android
+device/emulator and run:
 ```
 flutter drive \
   --driver=test_driver/integration_test.dart \

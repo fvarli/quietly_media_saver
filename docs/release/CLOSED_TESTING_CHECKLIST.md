@@ -16,9 +16,11 @@
 - [ ] Signed **AAB** builds (`flutter build appbundle --release`) and is verified signed with the **upload key**.
 
 ## ✅ RECOMMENDED — before/with closed test
-- [x] **512×512 Play icon** — done (`docs/store-assets/icon-512.png`).
-- [ ] Store **assets**: 1024×500 feature graphic, 4–8 phone screenshots (no platform logos / no "download from X") — see `docs/store-assets/README.md`.
-- [x] **Adaptive launcher icon** (fg/bg) via `flutter_launcher_icons` — done; **verify on device** (full-bleed-foreground caveat in store-assets README).
+- [x] **512×512 Play icon** — done (`docs/store-assets/icon-512.png`). *(interim brand mark)*
+- [x] **Feature graphic 1024×500** — done (`docs/store-assets/feature-graphic-1024x500.png`).
+- [x] **6 phone screenshots 1080×2400** — done (`docs/store-assets/screenshots/`), captured on-device, no platform logos / abstract media.
+- [x] **Adaptive launcher icon** (fg/bg, transparent foreground) via `flutter_launcher_icons` — done.
+- [ ] **(Production only)** replace the **interim** icon with the final Lunexa brand mark, then regenerate icon/512/feature-graphic.
 - [ ] App **name unified** to "Quietly" across Android + iOS.
 - [ ] **Support email** `hello@uselunexa.com` + **website** `https://uselunexa.com` live and in the listing.
 - [ ] In-app **Privacy policy** wired; Acceptable-use/Terms link added.

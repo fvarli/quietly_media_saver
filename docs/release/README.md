@@ -50,9 +50,9 @@ architecture in [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Store assets
 See [../store-assets/README.md](../store-assets/README.md). **Done:** adaptive +
-legacy launcher icon and the **512×512 Play icon** (derived from the final 1024
-master via `flutter_launcher_icons`). **Pending:** 1024×500 feature graphic + 4–6
-phone screenshots (prompts/storyboard in that doc).
+legacy launcher icon, **512×512 Play icon**, **1024×500 feature graphic**, and **6
+phone screenshots (1080×2400)**. **Pending (production only):** replace the
+**interim** icon with the final Lunexa brand mark, then regenerate the derived art.
 
 ## Deferred (not yet created)
 - `PRIVACY_POLICY.tr.md` / `PRIVACY_POLICY.es.md`, `STORE_LISTING.tr.md` /
