@@ -1,22 +1,29 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Network access for direct-media analysis (HTTP probe) and downloads.
          Required in the production manifest — the Flutter tool only adds it to
          the debug/profile manifests, so release builds would otherwise have no
          network. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Gallery/media read access (Pass 5A). Android 13+ uses scoped media
-         permissions; older Android falls back to read external storage. Write/
-         save permissions are added with the gallery-save pass (5C). -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <!-- Pre-Q (≤28) needs write to insert into the MediaStore gallery (Pass 7B);
-         Android 10+ uses scoped MediaStore (no runtime write grant for app media). -->
+    <!-- Quietly only SAVES (writes) media; it never reads/browses the user's
+         library, so no READ_MEDIA_* / READ_EXTERNAL_STORAGE is requested. On
+         Android 10+ (API 29+), saving via MediaStore needs no runtime permission;
+         pre-Q (≤28) needs WRITE_EXTERNAL_STORAGE to insert into the gallery. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- The open_filex plugin's manifest contributes media-READ permissions via
+         manifest merge. Quietly only opens its OWN app-documents file (through
+         open_filex's FileProvider), which needs none of these — strip them so the
+         shipped app matches the "no media read" Data Safety declaration. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove" />
 
     <application
         android:label="Quietly"

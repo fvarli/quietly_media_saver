@@ -6,8 +6,8 @@
 // means AppFlow depends on an abstraction (testable with a fake) and all
 // platform I/O is confined here — AppStateNotifier stays pure.
 //
-// Pass 5A: request/read media permission only. Write/save permissions arrive
-// with the gallery-save pass (5C).
+// Save-only: Quietly writes media to the gallery and never reads the user's
+// library, so it requests the minimal write access (none on Android 10+).
 // ─────────────────────────────────────────────────────────────
 
 import 'dart:io' show Platform;
@@ -32,9 +32,11 @@ abstract interface class PermissionService {
   Future<bool> openSystemSettings();
 }
 
-/// Real implementation backed by `permission_handler`. Chooses the correct
-/// permission set per platform/OS version (Android 13+ scoped media vs older
-/// storage; iOS Photos) and reduces multi-permission results to one status.
+/// Real implementation backed by `permission_handler`. Quietly only SAVES
+/// (writes) media — it never reads/browses the user's library — so it requests
+/// the minimal write-only access: nothing on Android 10+ (API 29+, scoped
+/// MediaStore), `WRITE_EXTERNAL_STORAGE` on pre-Q (≤28), and add-only Photos on
+/// iOS. Multi-permission results are reduced to one status.
 class PlatformPermissionService implements PermissionService {
   PlatformPermissionService({DeviceInfoPlugin? deviceInfo})
     : _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
@@ -42,22 +44,26 @@ class PlatformPermissionService implements PermissionService {
   final DeviceInfoPlugin _deviceInfo;
   int? _androidSdkInt; // cached after first lookup
 
+  /// The runtime permissions needed to SAVE media. Empty means none are required
+  /// (the caller treats that as already granted).
   Future<List<ph.Permission>> _galleryPermissions() async {
     if (Platform.isAndroid) {
       final sdkInt = _androidSdkInt ??=
           (await _deviceInfo.androidInfo).version.sdkInt;
-      // Android 13 (API 33)+ uses scoped media permissions; older uses storage.
-      return sdkInt >= 33
-          ? const [ph.Permission.photos, ph.Permission.videos]
+      // API 29+ (scoped MediaStore): saving needs no runtime permission.
+      // Pre-Q (≤28): WRITE_EXTERNAL_STORAGE to insert into the gallery.
+      return sdkInt >= 29
+          ? const <ph.Permission>[]
           : const [ph.Permission.storage];
     }
-    // iOS (and other platforms): Photos library.
-    return const [ph.Permission.photos];
+    // iOS (and other platforms): add-only Photos (write), never full-library read.
+    return const [ph.Permission.photosAddOnly];
   }
 
   @override
   Future<PermissionStatus> galleryStatus() async {
     final permissions = await _galleryPermissions();
+    if (permissions.isEmpty) return PermissionStatus.granted; // nothing to ask
     final statuses = [for (final p in permissions) await p.status];
     return reducePermissionStatuses(statuses);
   }
@@ -65,6 +71,7 @@ class PlatformPermissionService implements PermissionService {
   @override
   Future<PermissionStatus> requestGalleryPermission() async {
     final permissions = await _galleryPermissions();
+    if (permissions.isEmpty) return PermissionStatus.granted; // nothing to ask
     final results = await permissions.request();
     return reducePermissionStatuses(results.values);
   }

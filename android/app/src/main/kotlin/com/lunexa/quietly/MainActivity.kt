@@ -1,4 +1,4 @@
-package com.example.quietly_media_saver
+package com.lunexa.quietly
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -83,3 +83,9 @@ macos/.symlinks/
 .env
 .env.*
 !.env.example
+
+# Android signing secrets (never commit)
+android/key.properties
+**/*.jks
+**/*.keystore
+android/local.properties
