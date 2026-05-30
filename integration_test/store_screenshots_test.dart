@@ -3,14 +3,18 @@
 //
 // Renders the REAL app screens on a device/emulator (real fonts + UI) and saves
 // PNGs via the screenshot driver. Debug/test-only; no runtime production code is
-// changed. Run on a phone/emulator (recommend a 1080×2340 profile):
+// changed. Run on a phone/emulator (recommend a 1080×2340/2400 profile).
+//
+// The UI language is forced via --dart-define=SHOT_LOCALE=<en|tr|es> (default en),
+// so a single emulator captures every locale. Run once per locale:
 //
 //   flutter drive \
 //     --driver=test_driver/integration_test.dart \
 //     --target=integration_test/store_screenshots_test.dart \
-//     -d <device-id>
+//     --dart-define=SHOT_LOCALE=tr -d <device-id>
 //
-// Output → docs/store-assets/screenshots/NN-*.png (written by the driver).
+// Output → docs/store-assets/screenshots/<locale>/NN-*.png (written by the driver;
+// the shot name is prefixed with the locale folder).
 // ─────────────────────────────────────────────────────────────
 
 import 'dart:async';
@@ -22,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'package:quietly_media_saver/core/theme/app_theme.dart';
+import 'package:quietly_media_saver/l10n/app_localizations.dart';
 import 'package:quietly_media_saver/features/analyzing/analyzing_screen.dart';
 import 'package:quietly_media_saver/features/error/error_screen.dart';
 import 'package:quietly_media_saver/features/history/history_screen.dart';
@@ -70,6 +75,13 @@ class _HangAnalyzer implements MediaAnalysisService {
       Completer<AnalysisResult>().future;
 }
 
+/// UI language for this capture run (en/tr/es). Set with
+/// `--dart-define=SHOT_LOCALE=tr`; defaults to English.
+const String _shotLocale = String.fromEnvironment(
+  'SHOT_LOCALE',
+  defaultValue: 'en',
+);
+
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -98,12 +110,16 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: buildLightTheme(),
+            locale: const Locale(_shotLocale),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: child,
           ),
         ),
       );
       await tester.pump(settle);
-      await binding.takeScreenshot(name);
+      // Group output by locale: docs/store-assets/screenshots/<locale>/NN-*.png
+      await binding.takeScreenshot('$_shotLocale/$name');
       container.dispose();
     }
 

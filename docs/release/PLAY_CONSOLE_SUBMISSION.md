@@ -12,11 +12,15 @@
 - **Min Android:** 7.0 (API 24) · **Target:** API 36 · AAB signed with upload key `quietly_upload`
 
 ## 1. App details
-- **App name:** `Quietly – Media Saver`
+- **App name:** `Quietly – Media Saver` (identical in every locale).
 - **Default language:** English (United States) – `en-US`
 - **Short description (≤80):**
   `Calmly save public media you have the rights to — private, no ads, no tracking.`
 - **Full description:** use the full text in [STORE_LISTING.md](STORE_LISTING.md).
+- **Additional languages (add via Store listing → Manage translations):**
+  - **Turkish (tr-TR):** title/short/full + "What's new" from [STORE_LISTING.tr.md](STORE_LISTING.tr.md).
+  - **Spanish (es-ES):** title/short/full + "What's new" from [STORE_LISTING.es.md](STORE_LISTING.es.md).
+  - In-app UI is localized for these locales; the title stays `Quietly – Media Saver`.
 
 ## 2. Category
 - **App category:** Tools
@@ -69,21 +73,33 @@ Use [CONTENT_RATING.md](CONTENT_RATING.md). Summary:
   body is [PRIVACY_POLICY.md](PRIVACY_POLICY.md)).
 
 ## 11. Store listing
-- **App name:** `Quietly – Media Saver`
-- **Short / Full description:** from [STORE_LISTING.md](STORE_LISTING.md).
+- **App name:** `Quietly – Media Saver` (same in en/tr/es).
+- **Short / Full description:** en from [STORE_LISTING.md](STORE_LISTING.md);
+  tr from [STORE_LISTING.tr.md](STORE_LISTING.tr.md);
+  es from [STORE_LISTING.es.md](STORE_LISTING.es.md).
 - **Graphics (you must supply — no platform logos, no "download from X"):**
   - **App icon:** 512 × 512 px, 32-bit PNG (≤1 MB).
   - **Feature graphic:** 1024 × 500 px, PNG/JPG (required).
-  - **Phone screenshots:** 2–8, PNG/JPG, 16:9 or 9:16, each 320–3840 px per side.
+  - **Phone screenshots:** 6 per language, 1080 × 2400 PNG (within 320–3840 px/side,
+    ≤8 MB). Upload per language:
+    - en (default) → `docs/store-assets/screenshots/en/01-home … 06-private.png`
+    - Turkish (tr-TR) → `docs/store-assets/screenshots/tr/…`
+    - Spanish (es-ES) → `docs/store-assets/screenshots/es/…`
+    (If a language has no localized screenshots in Console, Play falls back to the
+    default-language set — but localized shots are supplied here.)
   - *(Optional)* 7" & 10" tablet screenshots.
-- **Status:** copy is final; **art assets pending** (see Deferred in README).
+- **Status:** copy is final (en/tr/es); **screenshots done (18, localized)**; icon
+  interim + final brand art pending (see Deferred in README).
 
-## 12. Release notes (en-US, v1.0.0)
+## 12. Release notes (v1.0.0)
+- **en-US:**
 ```
 First release of Quietly — a calm, private way to save public media you have the
 rights to. Paste a direct link, check it, and save it to your gallery. No ads,
 no tracking, no account.
 ```
+- **tr-TR:** use the "What's new" block in [STORE_LISTING.tr.md](STORE_LISTING.tr.md).
+- **es-ES:** use the "What's new" block in [STORE_LISTING.es.md](STORE_LISTING.es.md).
 
 ## 13. Pricing & distribution
 - **Price:** Free (cannot later switch a free app to paid).

@@ -1,6 +1,6 @@
 # Quietly — Store assets
 
-> **Status:** icon = **interim** (serviceable, not final brand) · feature graphic = done · screenshots = done (6 @ 1080×2400) · **Last updated:** 2026-05-30 · **Owner:** Lunexa
+> **Status:** icon = **interim** (serviceable, not final brand) · feature graphic = done · screenshots = done (**18 @ 1080×2400, localized en/tr/es**) · **Last updated:** 2026-05-31 · **Owner:** Lunexa
 > Google Play visual assets for **Quietly – Media Saver**. Brand: paper `#FAF8F4`,
 > ink `#211D18`, indigo accent `#4B53C4`. **No platform logos, no "download from X".**
 
@@ -21,7 +21,7 @@ feature graphic (commands below).
 | Play hi-res icon **512×512** | ✅ | ✅ Interim | `docs/store-assets/icon-512.png` |
 | Icon master (1024) + foreground | source | ✅ Interim | `assets/icon/quietly_icon_1024.png`, `…_foreground.png` |
 | **Feature graphic 1024×500** | ✅ | ✅ Done | `docs/store-assets/feature-graphic-1024x500.png` |
-| **Phone screenshots** (6) | ✅ | ✅ Done (1080×2400, on-device) | `docs/store-assets/screenshots/01-home … 06-private.png` |
+| **Phone screenshots** (6 × 3 locales) | ✅ | ✅ Done (1080×2400, on-device, localized) | `docs/store-assets/screenshots/{en,tr,es}/01-home … 06-private.png` |
 
 ## Regenerate icon + 512 + feature graphic (after swapping the icon)
 ```
@@ -39,29 +39,43 @@ convert -size 1024x500 xc:'#FAF8F4' \
   -alpha remove -alpha off -depth 8 docs/store-assets/feature-graphic-1024x500.png
 ```
 
-## Screenshots — ✅ captured (1080×2400, on-device)
-The 6 screenshots in `screenshots/` were captured on an Android emulator (real
-fonts + real UI) and verified (legible, on-brand, abstract media only, no platform
-logos). Headless `flutter test` renders text as boxes, so capture uses
-**`integration_test`**:
-- `integration_test/store_screenshots_test.dart` — seeds + renders the 6 screens, calls `binding.takeScreenshot('NN-name')`.
-- `test_driver/integration_test.dart` — writes the bytes to `docs/store-assets/screenshots/NN-name.png`.
+## Screenshots — ✅ captured (1080×2400, on-device, localized en/tr/es)
+18 screenshots — the 6 core screens in each of **en / tr / es** — live under
+`screenshots/<locale>/`. Captured on an Android emulator (real fonts + real UI) and
+verified (legible, on-brand, abstract media only, no platform logos, localized UI
+confirmed per locale). Headless `flutter test` renders text as boxes, so capture
+uses **`integration_test`**:
+- `integration_test/store_screenshots_test.dart` — seeds + renders the 6 screens,
+  forces the UI language from `--dart-define=SHOT_LOCALE`, and calls
+  `binding.takeScreenshot('<locale>/NN-name')`.
+- `test_driver/integration_test.dart` — writes the bytes to
+  `docs/store-assets/screenshots/<locale>/NN-name.png` (creates the folder).
 
 To **re-capture** (e.g. after the final brand icon lands), boot an Android
-device/emulator and run:
+device/emulator and run **once per locale** (`SHOT_LOCALE` ∈ `en|tr|es`, default `en`):
 ```
-flutter drive \
-  --driver=test_driver/integration_test.dart \
-  --target=integration_test/store_screenshots_test.dart \
-  -d <device-id>
+for L in en tr es; do
+  flutter drive \
+    --driver=test_driver/integration_test.dart \
+    --target=integration_test/store_screenshots_test.dart \
+    --dart-define=SHOT_LOCALE=$L \
+    -d <device-id>
+done
 ```
-Produces (real fonts, legible): `01-home`, `02-public-media`, `03-analyze`,
-`04-save`, `05-history`, `06-private` `.png`. Verify each is legible + within Play
-limits (24-bit, sides 320–3840 px, ≤8 MB) before upload.
+Produces, per locale: `01-home`, `02-public-media`, `03-analyze`, `04-save`,
+`05-history`, `06-private` `.png`. Verify each is legible + within Play limits
+(8-/24-bit PNG, sides 320–3840 px, ≤8 MB) before upload. Note: the 1080×2400 (~9:20)
+frame is taller than Play's 2:1 display guideline; accepted on upload — re-frame to
+1080×2160 if ever rejected.
 
-Captions (storyboard): Save public media, calmly. · Public media only — rights
-respected. · Check what's there, then save. · Straight to your gallery. ·
-Everything you saved, in one calm place. · No ads. No tracking. No account.
+> Emulator note: the API-36 SwiftShader emulator can drop ADB on a fast cold connect.
+> If `flutter drive` reports "device offline", `adb kill-server && adb start-server`,
+> reboot the AVD, let it settle, and re-run that locale.
+
+Captions (storyboard, per screen 01→06):
+- **en:** Save public media, calmly. · Public media only — rights respected. · Check what's there, then save. · Straight to your gallery. · Everything you saved, in one calm place. · No ads. No tracking. No account.
+- **tr:** Herkese açık medyayı sakince kaydedin. · Yalnızca herkese açık medya — haklara saygılı. · Neyin olduğunu görün, sonra kaydedin. · Doğrudan galerinize. · Kaydettiğiniz her şey tek bir sakin yerde. · Reklam yok. Takip yok. Hesap yok.
+- **es:** Guarda medios públicos, con calma. · Solo medios públicos: se respetan los derechos. · Mira qué hay y luego guarda. · Directo a tu galería. · Todo lo que guardaste, en un solo lugar tranquilo. · Sin anuncios. Sin rastreo. Sin cuenta.
 
 > `test/store_screenshots.dart` (headless) remains as a layout preview only (text
 > renders as boxes); the integration_test path is the real-screenshot route.
@@ -69,7 +83,7 @@ Everything you saved, in one calm place. · No ads. No tracking. No account.
 ## Target dimensions (reference)
 - Hi-res icon: **512×512**, 32-bit PNG, no alpha, ≤1 MB. *(done, interim art)*
 - Feature graphic: **1024×500**, 24-bit, no alpha. *(done)*
-- Phone screenshots: 6; **1080×2340** recommended; sides 320–3840 px; ≤8 MB.
+- Phone screenshots: 6 per locale (**18** total, en/tr/es); **1080×2400** (as captured); sides 320–3840 px; ≤8 MB.
 - Adaptive icon: 108×108 dp, foreground in central 72×72 dp safe zone. *(done)*
 
 ## Final brand icon prompt (for later)
