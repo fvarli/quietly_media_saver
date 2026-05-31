@@ -461,6 +461,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingThemeValue => 'Light';
 
   @override
+  String get settingLanguage => 'Language';
+
+  @override
+  String get languageSystem => 'System default';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageTurkish => 'Turkish';
+
+  @override
+  String get languageSpanish => 'Spanish';
+
+  @override
+  String get languageDone => 'Done';
+
+  @override
   String get settingHowItWorks => 'How Quietly works';
 
   @override

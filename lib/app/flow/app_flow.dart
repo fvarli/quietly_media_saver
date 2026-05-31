@@ -152,6 +152,8 @@ class AppFlow {
   // ── Sheets ────────────────────────────────────────────────
   Future<void> openQualitySheet() => showQualitySheet(context, ref);
 
+  Future<void> openLanguageSheet() => showLanguageSheet(context, ref);
+
   // ── Save / permission / download ──────────────────────────
   /// Request a save. If gallery permission is already granted, begin the
   /// (simulated) download. Otherwise show the priming sheet and, on "Allow",

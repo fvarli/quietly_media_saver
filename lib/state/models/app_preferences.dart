@@ -15,6 +15,8 @@
 
 import 'package:flutter/foundation.dart';
 
+import 'app_enums.dart';
+
 @immutable
 class AppPreferences {
   const AppPreferences({
@@ -23,6 +25,7 @@ class AppPreferences {
     this.wifiOnly = true,
     this.notify = true,
     this.firstRunAcknowledged = false,
+    this.languageMode = AppLanguageMode.system,
   });
 
   final String quality;
@@ -34,18 +37,23 @@ class AppPreferences {
   /// Persisted so the calm rights gate is shown only once.
   final bool firstRunAcknowledged;
 
+  /// Manual in-app language override; `system` follows the device locale.
+  final AppLanguageMode languageMode;
+
   AppPreferences copyWith({
     String? quality,
     bool? askQualityEveryTime,
     bool? wifiOnly,
     bool? notify,
     bool? firstRunAcknowledged,
+    AppLanguageMode? languageMode,
   }) => AppPreferences(
     quality: quality ?? this.quality,
     askQualityEveryTime: askQualityEveryTime ?? this.askQualityEveryTime,
     wifiOnly: wifiOnly ?? this.wifiOnly,
     notify: notify ?? this.notify,
     firstRunAcknowledged: firstRunAcknowledged ?? this.firstRunAcknowledged,
+    languageMode: languageMode ?? this.languageMode,
   );
 
   @override
@@ -55,7 +63,8 @@ class AppPreferences {
       other.askQualityEveryTime == askQualityEveryTime &&
       other.wifiOnly == wifiOnly &&
       other.notify == notify &&
-      other.firstRunAcknowledged == firstRunAcknowledged;
+      other.firstRunAcknowledged == firstRunAcknowledged &&
+      other.languageMode == languageMode;
 
   @override
   int get hashCode => Object.hash(
@@ -64,5 +73,6 @@ class AppPreferences {
     wifiOnly,
     notify,
     firstRunAcknowledged,
+    languageMode,
   );
 }

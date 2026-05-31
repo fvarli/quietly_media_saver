@@ -17,6 +17,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/a11y/a11y.dart';
 import '../core/theme/app_theme.dart';
 import '../l10n/app_localizations.dart';
+import '../state/app_state_provider.dart';
+import '../state/models/app_enums.dart';
 import 'bootstrap/app_bootstrap.dart';
 import 'router/app_router.dart';
 
@@ -54,6 +56,11 @@ class _QuietlyAppState extends ConsumerState<QuietlyApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    // Manual language override (Settings → Language). `system` leaves locale null
+    // so the device language flows through localeResolutionCallback below.
+    final languageMode = ref.watch(
+      appStateProvider.select((s) => s.languageMode),
+    );
 
     return MaterialApp.router(
       title: 'Quietly',
@@ -64,7 +71,14 @@ class _QuietlyAppState extends ConsumerState<QuietlyApp> {
       themeMode: ThemeMode.light,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      // Device language → tr / es, everything else → English.
+      // Manual override wins; `system` → null → device language via the callback.
+      locale: switch (languageMode) {
+        AppLanguageMode.system => null,
+        AppLanguageMode.en => const Locale('en'),
+        AppLanguageMode.tr => const Locale('tr'),
+        AppLanguageMode.es => const Locale('es'),
+      },
+      // Device language → tr / es, everything else → English (system mode).
       localeResolutionCallback: (locale, supported) {
         final code = locale?.languageCode;
         if (code == 'tr') return const Locale('tr');

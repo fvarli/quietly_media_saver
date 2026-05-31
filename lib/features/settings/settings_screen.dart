@@ -27,6 +27,7 @@ import '../../services/permissions/permission_service_provider.dart';
 import '../../state/app_state_provider.dart';
 import '../../state/models/app_enums.dart';
 import '../../state/models/quality_option.dart';
+import '../sheets/language_sheet.dart' show languageModeLabel;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -155,6 +156,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _SettingsGroup(
               label: l.settingsGroupAppearance,
               children: [
+                _SettingsRow(
+                  icon: QIcons.globe,
+                  label: l.settingLanguage,
+                  value: languageModeLabel(l, state.languageMode),
+                  onTap: flow.openLanguageSheet,
+                ),
                 _SettingsRow(
                   icon: QIcons.theme,
                   label: l.settingTheme,

@@ -856,6 +856,42 @@ abstract class AppLocalizations {
   /// **'Light'**
   String get settingThemeValue;
 
+  /// No description provided for @settingLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingLanguage;
+
+  /// No description provided for @languageSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get languageSystem;
+
+  /// No description provided for @languageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// No description provided for @languageTurkish.
+  ///
+  /// In en, this message translates to:
+  /// **'Turkish'**
+  String get languageTurkish;
+
+  /// No description provided for @languageSpanish.
+  ///
+  /// In en, this message translates to:
+  /// **'Spanish'**
+  String get languageSpanish;
+
+  /// No description provided for @languageDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get languageDone;
+
   /// No description provided for @settingHowItWorks.
   ///
   /// In en, this message translates to:

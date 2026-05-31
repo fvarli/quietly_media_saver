@@ -49,3 +49,9 @@ enum PermissionStatus { granted, denied, permanentlyDenied }
 
 /// Media kind for tiles/history/queue (`kind` in the prototype seed data).
 enum MediaKind { video, image, carousel }
+
+/// In-app language preference (Settings → Language). `system` keeps the device
+/// locale behavior (see [QuietlyApp]'s localeResolutionCallback: tr→tr, es→es,
+/// else en); the others force that locale regardless of device language.
+/// Persisted by `.name` (see SharedPreferencesService).
+enum AppLanguageMode { system, en, tr, es }

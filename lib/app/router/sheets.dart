@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/sheets/language_sheet.dart';
 import '../../features/sheets/permission_sheet.dart';
 import '../../features/sheets/quality_sheet.dart';
 import '../../state/app_state_provider.dart';
@@ -39,6 +40,11 @@ Future<void> showQualitySheet(BuildContext context, WidgetRef ref) async {
   await _showQuietlySheet(context, builder: (_) => const QualitySheet());
   ref.read(appStateProvider.notifier).closeSheet();
 }
+
+/// Opens the language picker sheet (Settings → Language). The selection applies
+/// live via the notifier; no separate AppState.sheet tracking is needed.
+Future<void> showLanguageSheet(BuildContext context, WidgetRef ref) =>
+    _showQuietlySheet(context, builder: (_) => const LanguageSheet());
 
 /// Opens the gallery-permission request sheet (HANDOFF screen 11) and returns
 /// whether the user allowed access (`true`), declined (`false`), or dismissed

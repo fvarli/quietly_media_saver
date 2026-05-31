@@ -143,6 +143,11 @@ class AppStateNotifier extends Notifier<AppState> {
   void setFirstRunAcknowledged(bool value) =>
       state = state.copyWith(firstRunAcknowledged: value);
 
+  /// Set the in-app language override (Settings → Language). `system` returns to
+  /// device-locale behavior. Persisted via the bootstrap write-through.
+  void setLanguageMode(AppLanguageMode mode) =>
+      state = state.copyWith(languageMode: mode);
+
   /// Mark that preferences loaded successfully, so [AppState.firstRunResolved]
   /// is authoritative and the first-run gate can be evaluated.
   void markFirstRunResolved() => state = state.copyWith(firstRunResolved: true);

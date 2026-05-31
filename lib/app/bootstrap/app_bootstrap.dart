@@ -67,6 +67,7 @@ class AppBootstrap {
         ..setAskQuality(prefs.askQualityEveryTime)
         ..setWifiOnly(prefs.wifiOnly)
         ..setNotify(prefs.notify)
+        ..setLanguageMode(prefs.languageMode)
         ..setFirstRunAcknowledged(prefs.firstRunAcknowledged)
         // Prefs loaded → the first-run flag is now authoritative.
         ..markFirstRunResolved();

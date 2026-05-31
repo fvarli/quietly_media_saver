@@ -12,6 +12,7 @@
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../state/models/app_enums.dart';
 import '../../state/models/app_preferences.dart';
 
 abstract interface class PreferencesService {
@@ -29,6 +30,7 @@ class SharedPreferencesService implements PreferencesService {
   static const _kWifiOnly = 'pref.wifiOnly';
   static const _kNotify = 'pref.notify';
   static const _kFirstRunAck = 'pref.firstRunAcknowledged';
+  static const _kLanguageMode = 'pref.languageMode';
 
   @override
   Future<AppPreferences> load() async {
@@ -42,6 +44,10 @@ class SharedPreferencesService implements PreferencesService {
       notify: prefs.getBool(_kNotify) ?? defaults.notify,
       firstRunAcknowledged:
           prefs.getBool(_kFirstRunAck) ?? defaults.firstRunAcknowledged,
+      // Tolerant parse: unknown/missing value falls back to system.
+      languageMode:
+          AppLanguageMode.values.asNameMap()[prefs.getString(_kLanguageMode)] ??
+          defaults.languageMode,
     );
   }
 
@@ -53,5 +59,6 @@ class SharedPreferencesService implements PreferencesService {
     await prefs.setBool(_kWifiOnly, p.wifiOnly);
     await prefs.setBool(_kNotify, p.notify);
     await prefs.setBool(_kFirstRunAck, p.firstRunAcknowledged);
+    await prefs.setString(_kLanguageMode, p.languageMode.name);
   }
 }

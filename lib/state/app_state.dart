@@ -48,6 +48,7 @@ class AppState {
     this.clipboardUrl,
     this.firstRunAcknowledged = false,
     this.firstRunResolved = false,
+    this.languageMode = AppLanguageMode.system,
   });
 
   /// Current logical screen (state-machine). Navigation is reflected by
@@ -109,6 +110,10 @@ class AppState {
   /// fails open (no gate) rather than gating every launch.
   final bool firstRunResolved;
 
+  /// Manual in-app language override (Settings → Language); `system` follows the
+  /// device locale. Persisted via [toPreferences]; drives [QuietlyApp]'s locale.
+  final AppLanguageMode languageMode;
+
   // ── Derived getters ───────────────────────────────────────
   /// Resolved quality option for [quality].
   QualityOption get qualityOption => kQualityOptions.firstWhere(
@@ -142,6 +147,7 @@ class AppState {
     wifiOnly: toggles.wifiOnly,
     notify: toggles.notify,
     firstRunAcknowledged: firstRunAcknowledged,
+    languageMode: languageMode,
   );
 
   /// History grouped in display order (only non-empty groups).
@@ -181,6 +187,7 @@ class AppState {
     String? clipboardUrl,
     bool? firstRunAcknowledged,
     bool? firstRunResolved,
+    AppLanguageMode? languageMode,
   }) {
     return AppState(
       screen: screen ?? this.screen,
@@ -201,6 +208,7 @@ class AppState {
       clipboardUrl: clipboardUrl ?? this.clipboardUrl,
       firstRunAcknowledged: firstRunAcknowledged ?? this.firstRunAcknowledged,
       firstRunResolved: firstRunResolved ?? this.firstRunResolved,
+      languageMode: languageMode ?? this.languageMode,
     );
   }
 }

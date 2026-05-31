@@ -463,6 +463,24 @@ class AppLocalizationsTr extends AppLocalizations {
   String get settingThemeValue => 'Açık';
 
   @override
+  String get settingLanguage => 'Dil';
+
+  @override
+  String get languageSystem => 'Sistem dili';
+
+  @override
+  String get languageEnglish => 'İngilizce';
+
+  @override
+  String get languageTurkish => 'Türkçe';
+
+  @override
+  String get languageSpanish => 'İspanyolca';
+
+  @override
+  String get languageDone => 'Tamam';
+
+  @override
   String get settingHowItWorks => 'Quietly nasıl çalışır';
 
   @override

@@ -463,6 +463,24 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingThemeValue => 'Claro';
 
   @override
+  String get settingLanguage => 'Idioma';
+
+  @override
+  String get languageSystem => 'Idioma del sistema';
+
+  @override
+  String get languageEnglish => 'Inglés';
+
+  @override
+  String get languageTurkish => 'Turco';
+
+  @override
+  String get languageSpanish => 'Español';
+
+  @override
+  String get languageDone => 'Listo';
+
+  @override
   String get settingHowItWorks => 'Cómo funciona Quietly';
 
   @override

@@ -1181,6 +1181,174 @@ void main() {
     });
   });
 
+  group('Language setting', () {
+    // Pumps the full app with all platform layers faked and preferences seeded,
+    // so QuietlyApp's bootstrap loads [mode] and MaterialApp renders that locale.
+    Future<ProviderContainer> pumpAppWithLanguage(
+      WidgetTester tester,
+      AppLanguageMode mode,
+    ) async {
+      // Use a generous device width so the longer tr/es step labels fit: the
+      // compact steps row has a pre-existing horizontal tightness with longer
+      // locales that is unrelated to the language setting. This test verifies
+      // locale wiring (the headline string), not steps-row layout at small widths.
+      tester.view.physicalSize = const Size(1260, 2520);
+      tester.view.devicePixelRatio = 2.625;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final connectivity = FakeConnectivityService(online: true);
+      addTearDown(connectivity.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          connectivityServiceProvider.overrideWithValue(connectivity),
+          reachabilityServiceProvider.overrideWithValue(
+            FakeReachabilityService(),
+          ),
+          preferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(
+              AppPreferences(firstRunAcknowledged: true, languageMode: mode),
+            ),
+          ),
+          savedMediaRepositoryProvider.overrideWithValue(
+            FakeSavedMediaRepository(),
+          ),
+          permissionServiceProvider.overrideWithValue(FakePermissionService()),
+          clipboardServiceProvider.overrideWithValue(FakeClipboardService()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const QuietlyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    test('defaults to system mode', () {
+      expect(const AppPreferences().languageMode, AppLanguageMode.system);
+      expect(const AppState().languageMode, AppLanguageMode.system);
+    });
+
+    test('preferences round-trip the language mode by name', () async {
+      const prefs = AppPreferences(languageMode: AppLanguageMode.tr);
+      // .name is the persisted form; tolerant parse restores the enum.
+      expect(prefs.languageMode.name, 'tr');
+      expect(AppLanguageMode.values.asNameMap()['tr'], AppLanguageMode.tr);
+    });
+
+    test('bootstrap restores the persisted language mode', () async {
+      final connectivity = FakeConnectivityService(online: true);
+      addTearDown(connectivity.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          connectivityServiceProvider.overrideWithValue(connectivity),
+          reachabilityServiceProvider.overrideWithValue(
+            FakeReachabilityService(),
+          ),
+          preferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(
+              const AppPreferences(
+                firstRunAcknowledged: true,
+                languageMode: AppLanguageMode.es,
+              ),
+            ),
+          ),
+          savedMediaRepositoryProvider.overrideWithValue(
+            FakeSavedMediaRepository(),
+          ),
+          permissionServiceProvider.overrideWithValue(FakePermissionService()),
+          clipboardServiceProvider.overrideWithValue(FakeClipboardService()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(bootstrapProvider).start();
+      expect(container.read(appStateProvider).languageMode, AppLanguageMode.es);
+    });
+
+    test('changing the language persists via the write-through', () async {
+      final prefs = FakePreferencesService(
+        const AppPreferences(firstRunAcknowledged: true),
+      );
+      final container = ProviderContainer(
+        overrides: [preferencesServiceProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+      // Reading bootstrapProvider registers the preference write-through listener.
+      container.read(bootstrapProvider);
+
+      container
+          .read(appStateProvider.notifier)
+          .setLanguageMode(AppLanguageMode.tr);
+      await Future<void>.delayed(Duration.zero); // let ref.listen fire
+      expect(prefs.saved?.languageMode, AppLanguageMode.tr);
+    });
+
+    testWidgets('manual Turkish override renders Turkish UI', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAppWithLanguage(tester, AppLanguageMode.tr);
+      expect(
+        find.text('Herkese açık medyayı galerinize kaydedin'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('manual Spanish override renders Spanish UI', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAppWithLanguage(tester, AppLanguageMode.es);
+      expect(find.text('Guarda medios públicos en tu galería'), findsOneWidget);
+    });
+
+    testWidgets('manual English override renders English UI', (tester) async {
+      _usePhoneViewport(tester);
+      await pumpAppWithLanguage(tester, AppLanguageMode.en);
+      expect(find.text('Save public media to your gallery'), findsOneWidget);
+    });
+
+    testWidgets('system default uses device behavior (English in test env)', (
+      tester,
+    ) async {
+      _usePhoneViewport(tester);
+      await pumpAppWithLanguage(tester, AppLanguageMode.system);
+      expect(find.text('Save public media to your gallery'), findsOneWidget);
+    });
+
+    testWidgets('Settings row opens the sheet and selecting a language updates '
+        'state', (tester) async {
+      _usePhoneViewport(tester);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await _pumpScreen(tester, container, const SettingsScreen());
+      await tester.pumpAndSettle();
+
+      // Language row is in the Appearance group, lower in the lazy list.
+      await tester.scrollUntilVisible(find.text('Language'), 200);
+      expect(find.text('Language'), findsOneWidget);
+      // Default mode shown in the row value.
+      expect(find.text('System default'), findsOneWidget);
+
+      // Open the language sheet and choose Turkish.
+      await tester.tap(find.text('Language'));
+      await tester.pumpAndSettle();
+      expect(find.text('Turkish'), findsOneWidget); // sheet option
+      await tester.tap(find.text('Turkish'));
+      await tester.pumpAndSettle();
+
+      expect(container.read(appStateProvider).languageMode, AppLanguageMode.tr);
+
+      // Switching back to System default clears the override.
+      await tester.tap(find.text('System default'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(appStateProvider).languageMode,
+        AppLanguageMode.system,
+      );
+    });
+  });
+
   group('Settings screen', () {
     testWidgets('renders rights/legal, permission and storage sections', (
       tester,
